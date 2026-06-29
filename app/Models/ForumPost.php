@@ -1,0 +1,48 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+
+class ForumPost extends Model
+{
+    protected $table = 'forum_posts';
+
+    protected $fillable = [
+        'user_id', 'forum_category_id', 'title', 'body',
+        'likes_count', 'comments_count', 'views_count', 'solved',
+    ];
+
+    protected function casts(): array
+    {
+        return ['solved' => 'boolean'];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ForumCategory::class, 'forum_category_id');
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(ForumComment::class);
+    }
+
+    public function likes(): MorphMany
+    {
+        return $this->morphMany(ForumLike::class, 'likeable');
+    }
+
+    public function bookmarks(): HasMany
+    {
+        return $this->hasMany(ForumBookmark::class);
+    }
+}

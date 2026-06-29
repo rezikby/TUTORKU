@@ -1,0 +1,50 @@
+<?php
+/**
+ * FILE: backend/app/Services/Auth/RecaptchaService.php
+ * STATUS: BARU
+ */
+
+
+namespace App\Services\Auth;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Verifikasi token Google reCAPTCHA v2/v3 yang dikirim dari frontend.
+ * Dipakai di Pengajuan Tutor sesuai instruksi keamanan.
+ */
+class RecaptchaService
+{
+    public function verify(?string $token, ?string $ip = null): bool
+    {
+        $secret = config('services.recaptcha.secret_key');
+
+        // Jika secret belum diisi (belum setup), jangan blokir flow di lingkungan dev/lokal.
+        if (! $secret) {
+            Log::info('[reCAPTCHA DEV-MODE] secret key belum diisi, verifikasi dilewati.');
+
+            return true;
+        }
+
+        if (! $token) {
+            return false;
+        }
+
+        try {
+            $response = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+                'secret' => $secret,
+                'response' => $token,
+                'remoteip' => $ip,
+            ]);
+
+            $data = $response->json() ?? [];
+
+            return (bool) ($data['success'] ?? false);
+        } catch (\Throwable $e) {
+            Log::error('reCAPTCHA verification error: '.$e->getMessage());
+
+            return false;
+        }
+    }
+}
