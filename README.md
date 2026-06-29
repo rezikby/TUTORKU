@@ -133,19 +133,24 @@ window.Echo.join(`live-session.${roomId}`)
 
 ---
 
-## 3. Akun Demo (password untuk semua: `password`)
+## 3. Akun Demo
+
+Akun demo dibuat saat menjalankan seeder proyek. Saat ini, akun yang tersedia antara lain:
 
 | Role | Email | Catatan |
 |---|---|---|
-| Admin | `admin@TUTORKU.id` | Akses penuh ke `/api/admin/*` |
-| Siswa | `siswa@TUTORKU.id` | Sudah punya riwayat booking, study log, chat |
-| Siswa | `fajar@TUTORKU.id` | Akun siswa kedua |
-| Tutor | `rizky@TUTORKU.id` | Matematika & Fisika — Top Tutor, riwayat pendapatan 6 bulan |
-| Tutor | `sari@TUTORKU.id` | Bahasa Inggris — Verified |
-| Tutor | `budi@TUTORKU.id` | Kimia & Biologi — New |
-| Tutor | `putri@TUTORKU.id` | Matematika — Top Tutor |
-| Tutor | `ahmad@TUTORKU.id` | Fisika & Matematika — Verified |
-| Tutor | `nadia@TUTORKU.id` | Bahasa Indonesia — Verified |
+| Admin | `rezikobay75@gmail.com` | Akun admin default; password diatur di file seeder `database/seeders/AdminSeeder.php` |
+| Tutor | `rezicopilot1@gmail.com` | Matematika & Fisika — Verified |
+| Tutor | `rezicopilot2@gmail.com` | Bahasa Inggris — Verified |
+| Tutor | `rezicopilot3@gmail.com` | Kimia & Biologi — Verified |
+| Tutor | `rezicopilot4@gmail.com` | Matematika — Verified |
+| Tutor | `rezicopilot5@gmail.com` | Fisika & Matematika — Verified |
+| Tutor | `rezicopilot6@gmail.com` | Bahasa Indonesia — Verified |
+| Tutor | `rezicopilot7@gmail.com` | Matematika & Bahasa Inggris — Verified |
+| Tutor | `rezicopilot8@gmail.com` | Biologi & Kimia — Verified |
+| Tutor | `rezicopilot9@gmail.com` | Fisika — Verified |
+| Tutor | `rezicopilot10@gmail.com` | Bahasa Inggris & Bahasa Indonesia — Verified |
+| Tutor | `rezicopilot11@gmail.com` | Matematika & UTBK — Verified |
 
 Login: `POST /api/auth/login` dengan `email` & `password`, response berisi
 `token` yang dipakai sebagai `Authorization: Bearer {token}` di setiap
@@ -372,4 +377,5 @@ curl http://localhost:8000/api/dashboard/siswa \
 - Export laporan admin ke Excel/PDF.
 - Push notification native (FCM) — struktur notifikasi sudah generic,
   tinggal tambah channel baru mengikuti pola `WhatsAppChannel`.
+# TUTORKU_BACKEND
 # TUTORKU_BACKEND
