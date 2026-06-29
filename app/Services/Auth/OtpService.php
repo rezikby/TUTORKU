@@ -26,6 +26,12 @@ class OtpService
     public function send(string $identifier, string $purpose, ?string $ipAddress = null): OtpCode
     {
         try {
+            Log::info('OtpService::send - Memulai pengiriman OTP', [
+                'identifier' => $identifier,
+                'purpose' => $purpose,
+                'ip' => $ipAddress
+            ]);
+
             if ($purpose === 'phone') {
                 $identifier = $this->formatPhoneNumber($identifier);
             }
@@ -44,6 +50,11 @@ class OtpService
             $max = (int) str_repeat('9', $this->length);
             $code = (string) random_int($min, $max);
 
+            Log::info('OtpService::send - Kode OTP dibuat', [
+                'code' => $code,
+                'identifier' => $identifier
+            ]);
+
             $otp = OtpCode::create([
                 'identifier' => $identifier,
                 'purpose' => $purpose,
@@ -55,9 +66,18 @@ class OtpService
 
             $this->dispatch($identifier, $purpose, $code);
 
+            Log::info('OtpService::send - OTP berhasil dikirim', [
+                'otp_id' => $otp->id,
+                'identifier' => $identifier
+            ]);
+
             return $otp;
         } catch (\Exception $e) {
-            Log::error('OTP send error: ' . $e->getMessage());
+            Log::error('OTP send error: ' . $e->getMessage(), [
+                'identifier' => $identifier,
+                'purpose' => $purpose,
+                'trace' => $e->getTraceAsString()
+            ]);
             throw $e;
         }
     }
@@ -65,6 +85,12 @@ class OtpService
     public function verify(string $identifier, string $purpose, string $code): array
     {
         try {
+            Log::info('OtpService::verify - Memulai verifikasi OTP', [
+                'identifier' => $identifier,
+                'purpose' => $purpose,
+                'code' => $code
+            ]);
+
             if ($purpose === 'phone') {
                 $identifier = $this->formatPhoneNumber($identifier);
             }
@@ -76,20 +102,37 @@ class OtpService
                 ->first();
 
             if (! $otp) {
+                Log::warning('OtpService::verify - OTP tidak ditemukan', [
+                    'identifier' => $identifier,
+                    'purpose' => $purpose
+                ]);
                 return ['success' => false, 'message' => 'Kode OTP tidak ditemukan. Silakan minta kode baru.'];
             }
 
             if ($otp->isExpired()) {
+                Log::warning('OtpService::verify - OTP sudah kadaluarsa', [
+                    'identifier' => $identifier,
+                    'expires_at' => $otp->expires_at
+                ]);
                 return ['success' => false, 'message' => 'Kode OTP sudah kedaluwarsa. Silakan minta kode baru.'];
             }
 
             if ($otp->maxAttemptsReached()) {
+                Log::warning('OtpService::verify - Maksimal attempts tercapai', [
+                    'identifier' => $identifier,
+                    'attempts' => $otp->attempts
+                ]);
                 return ['success' => false, 'message' => 'Kamu sudah mencapai batas maksimal percobaan. Silakan minta kode baru.'];
             }
 
             if (! hash_equals($otp->code, $code)) {
                 $otp->increment('attempts');
                 $sisa = $this->maxAttempts - $otp->attempts;
+                Log::warning('OtpService::verify - Kode OTP salah', [
+                    'identifier' => $identifier,
+                    'attempts' => $otp->attempts,
+                    'remaining' => $sisa
+                ]);
                 return [
                     'success' => false,
                     'message' => $sisa > 0
@@ -99,15 +142,30 @@ class OtpService
             }
 
             $otp->update(['verified_at' => now()]);
+            Log::info('OtpService::verify - OTP berhasil diverifikasi', [
+                'identifier' => $identifier,
+                'otp_id' => $otp->id
+            ]);
+
             return ['success' => true, 'message' => 'Verifikasi berhasil.'];
         } catch (\Exception $e) {
-            Log::error('OTP verify error: ' . $e->getMessage());
+            Log::error('OTP verify error: ' . $e->getMessage(), [
+                'identifier' => $identifier,
+                'purpose' => $purpose,
+                'trace' => $e->getTraceAsString()
+            ]);
             return ['success' => false, 'message' => 'Terjadi kesalahan saat verifikasi.'];
         }
     }
 
     protected function dispatch(string $identifier, string $purpose, string $code): void
     {
+        Log::info('OtpService::dispatch - Mengirim OTP', [
+            'identifier' => $identifier,
+            'purpose' => $purpose,
+            'code' => $code
+        ]);
+
         if ($purpose === 'google_email') {
             $this->sendEmail($identifier, $code);
             return;
@@ -118,11 +176,24 @@ class OtpService
     protected function sendEmail(string $email, string $code): void
     {
         try {
+            Log::info('OtpService::sendEmail - Mencoba kirim OTP email', [
+                'email' => $email,
+                'code' => $code
+            ]);
+
             (new AnonymousNotifiable)
                 ->route('mail', $email)
                 ->notify(new OtpCodeNotification($code, $this->expiresMinutes));
+
+            Log::info('OtpService::sendEmail - OTP email berhasil dikirim', [
+                'email' => $email
+            ]);
         } catch (\Exception $e) {
-            Log::error('Send email OTP error: ' . $e->getMessage());
+            Log::error('Send email OTP error: ' . $e->getMessage(), [
+                'email' => $email,
+                'trace' => $e->getTraceAsString()
+            ]);
+            // Jangan throw exception agar proses tetap lanjut
         }
     }
 
@@ -137,6 +208,11 @@ class OtpService
             $message .= "Kode ini berlaku selama {$this->expiresMinutes} menit.\n";
             $message .= "Jangan berikan kode ini kepada siapapun.\n\n";
             $message .= "© TUTORKU - Belajar. Tumbuh. Berprestasi.";
+
+            Log::info('OtpService::sendWhatsapp - Mencoba kirim OTP WhatsApp', [
+                'phone' => $phone,
+                'has_token' => !empty($token)
+            ]);
 
             if (! $token) {
                 Log::info("[OTP DEV-MODE] WhatsApp OTP ke {$phone}: {$code}");

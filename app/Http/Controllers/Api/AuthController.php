@@ -45,36 +45,64 @@ class AuthController extends Controller
     {
         $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
 
+        Log::info('Google Callback - Memulai proses', [
+            'frontend_url' => $frontendUrl
+        ]);
+
         try {
             $googleUser = Socialite::driver('google')
                 ->stateless()
                 ->redirectUrl(config('services.google.redirect'))
                 ->user();
+            
+            Log::info('Google Callback - Data user diterima', [
+                'email' => $googleUser->getEmail(),
+                'name' => $googleUser->getName(),
+                'id' => $googleUser->getId()
+            ]);
         } catch (\Throwable $e) {
             Log::error('Google callback error: ' . $e->getMessage());
             return redirect()->away("{$frontendUrl}/#/login?error=google_failed");
         }
 
         if (! $googleUser->getEmail()) {
+            Log::error('Google Callback - Email tidak ditemukan');
             return redirect()->away("{$frontendUrl}/#/login?error=google_no_email");
         }
 
         $user = User::where('email', $googleUser->getEmail())->first();
 
         if ($user) {
+            Log::info('Google Callback - User ditemukan', [
+                'user_id' => $user->id,
+                'email' => $user->email
+            ]);
+
             if ($user->status === 'suspended') {
+                Log::warning('Google Callback - User suspended', [
+                    'user_id' => $user->id
+                ]);
                 return redirect()->away("{$frontendUrl}/#/login?error=suspended");
             }
 
-            $user->forceFill([
-                'last_login_at' => now(),
-                'google_id' => $user->google_id ?? $googleUser->getId(),
-                'google_avatar' => $googleUser->getAvatar(),
-            ])->save();
+            // Jika user sudah memiliki email_verified_at, langsung login tanpa OTP
+            if ($user->email_verified_at) {
+                Log::info('Google Callback - User sudah terverifikasi, login langsung', [
+                    'user_id' => $user->id
+                ]);
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+                $user->forceFill([
+                    'last_login_at' => now(),
+                    'google_id' => $user->google_id ?? $googleUser->getId(),
+                    'google_avatar' => $googleUser->getAvatar(),
+                ])->save();
 
-            return redirect()->away("{$frontendUrl}/#/login/callback?token={$token}&role={$user->role}");
+                $token = $user->createToken('auth_token')->plainTextToken;
+
+                return redirect()->away("{$frontendUrl}/#/login/callback?token={$token}&role={$user->role}");
+            }
+
+            Log::info('Google Callback - User belum verifikasi email, kirim OTP');
         }
 
         $pendingToken = (string) Str::uuid();
@@ -84,12 +112,27 @@ class AuthController extends Controller
             'name' => $googleUser->getName() ?: $googleUser->getNickname() ?: 'Pengguna TUTORKU',
             'google_id' => $googleUser->getId(),
             'avatar' => $googleUser->getAvatar(),
-        ], now()->addMinutes(10));
+        ], now()->addMinutes(30)); // Tambah waktu menjadi 30 menit
+
+        Log::info('Google Callback - Cache pending dibuat', [
+            'pending_token' => $pendingToken,
+            'email' => $googleUser->getEmail()
+        ]);
 
         try {
-            $this->otpService->send($googleUser->getEmail(), 'google_email', $request->ip());
+            $otp = $this->otpService->send($googleUser->getEmail(), 'google_email', $request->ip());
+            Log::info('OTP berhasil dikirim ke email', [
+                'email' => $googleUser->getEmail(),
+                'code' => $otp->code,
+                'expires_at' => $otp->expires_at
+            ]);
         } catch (\Throwable $e) {
-            Log::warning('Gagal kirim OTP Google email: ' . $e->getMessage());
+            Log::error('Gagal kirim OTP Google email: ' . $e->getMessage(), [
+                'email' => $googleUser->getEmail(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            // Jangan redirect error, tetap lanjut ke halaman OTP
+            // User akan melihat error di frontend
         }
 
         return redirect()->away("{$frontendUrl}/#/login/google-otp?pending_token={$pendingToken}&email={$googleUser->getEmail()}");
@@ -100,15 +143,30 @@ class AuthController extends Controller
         try {
             $validated = $request->validate(['pending_token' => ['required', 'string']]);
 
+            Log::info('Resend Google OTP - Memulai', [
+                'pending_token' => $validated['pending_token']
+            ]);
+
             $pending = Cache::get("google_pending:{$validated['pending_token']}");
 
             if (! $pending) {
+                Log::warning('Resend Google OTP - Cache tidak ditemukan', [
+                    'pending_token' => $validated['pending_token']
+                ]);
                 return response()->json(['message' => 'Sesi login Google sudah kedaluwarsa. Silakan ulangi dari awal.'], 422);
             }
 
             try {
-                $this->otpService->send($pending['email'], 'google_email', $request->ip());
+                $otp = $this->otpService->send($pending['email'], 'google_email', $request->ip());
+                Log::info('OTP baru berhasil dikirim', [
+                    'email' => $pending['email'],
+                    'code' => $otp->code
+                ]);
             } catch (\RuntimeException $e) {
+                Log::warning('Resend Google OTP - Rate limited', [
+                    'email' => $pending['email'],
+                    'message' => $e->getMessage()
+                ]);
                 return response()->json(['message' => $e->getMessage()], 429);
             }
 
@@ -124,21 +182,38 @@ class AuthController extends Controller
         try {
             $validated = $request->validated();
 
+            Log::info('Verify Google OTP - Memulai', [
+                'pending_token' => $validated['pending_token'],
+                'code' => $validated['code']
+            ]);
+
             $pending = Cache::get("google_pending:{$validated['pending_token']}");
 
             if (! $pending) {
+                Log::warning('Verify Google OTP - Cache tidak ditemukan', [
+                    'pending_token' => $validated['pending_token']
+                ]);
                 return response()->json(['message' => 'Sesi login Google sudah kedaluwarsa. Silakan ulangi dari awal.'], 422);
             }
 
             $result = $this->otpService->verify($pending['email'], 'google_email', $validated['code']);
 
             if (! $result['success']) {
+                Log::warning('Verify Google OTP - Verifikasi gagal', [
+                    'email' => $pending['email'],
+                    'message' => $result['message']
+                ]);
                 return response()->json(['message' => $result['message']], 422);
             }
 
             $user = User::where('email', $pending['email'])->first();
 
             if (! $user) {
+                Log::info('Verify Google OTP - Membuat user baru', [
+                    'email' => $pending['email'],
+                    'name' => $pending['name']
+                ]);
+
                 $user = User::create([
                     'name' => $pending['name'],
                     'email' => $pending['email'],
@@ -151,6 +226,11 @@ class AuthController extends Controller
 
                 UserSetting::create(['user_id' => $user->id]);
             } else {
+                Log::info('Verify Google OTP - Update user existing', [
+                    'user_id' => $user->id,
+                    'email' => $user->email
+                ]);
+
                 $user->forceFill([
                     'google_id' => $user->google_id ?? $pending['google_id'],
                     'google_avatar' => $pending['avatar'],
@@ -159,14 +239,22 @@ class AuthController extends Controller
             }
 
             if ($user->status === 'suspended') {
+                Log::warning('Verify Google OTP - User suspended', [
+                    'user_id' => $user->id
+                ]);
                 return response()->json(['message' => 'Akun kamu telah dinonaktifkan. Hubungi admin TUTORKU.'], 403);
             }
 
             Cache::forget("google_pending:{$validated['pending_token']}");
+            Log::info('Verify Google OTP - Cache pending dihapus', [
+                'pending_token' => $validated['pending_token']
+            ]);
 
             return $this->issueSession($user, $request, 'google', $validated['remember'] ?? false, $validated['device_name'] ?? null);
         } catch (\Exception $e) {
-            Log::error('Verify Google OTP error: ' . $e->getMessage());
+            Log::error('Verify Google OTP error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['message' => 'Terjadi kesalahan pada server'], 500);
         }
     }

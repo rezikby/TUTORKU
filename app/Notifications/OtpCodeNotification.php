@@ -1,47 +1,40 @@
 <?php
-/**
- * FILE: backend/app/Notifications/OtpCodeNotification.php
- * STATUS: DIUBAH (PENTING: hapus ShouldQueue agar OTP terkirim langsung)
- */
-
 
 namespace App\Notifications;
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-/**
- * TIDAK menggunakan ShouldQueue secara sengaja: OTP adalah kebutuhan real-time
- * (user menunggu kode di halaman login), jadi harus terkirim langsung secara
- * synchronous. Jika di-queue dan tidak ada `php artisan queue:work` berjalan,
- * OTP tidak akan pernah terkirim sampai worker diaktifkan — user akan stuck.
- */
-class OtpCodeNotification extends Notification
+class OtpCodeNotification extends Notification implements ShouldQueue
 {
-    public function __construct(
-        public string $code,
-        public int $expiresMinutes,
-    ) {
+    use Queueable;
+
+    protected string $code;
+    protected int $expiresMinutes;
+
+    public function __construct(string $code, int $expiresMinutes)
+    {
+        $this->code = $code;
+        $this->expiresMinutes = $expiresMinutes;
     }
 
-    public function via(object $notifiable): array
+    public function via($notifiable): array
     {
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Kode OTP TUTORKU Kamu')
+            ->subject('🔐 Kode Verifikasi TUTORKU')
             ->greeting('Halo!')
-            ->line('Gunakan kode berikut untuk menyelesaikan proses login ke TUTORKU:')
-            ->line(new \Illuminate\Support\HtmlString(
-                '<div style="text-align:center;margin:24px 0;">'
-                .'<span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#3B7EFF;">'.$this->code.'</span>'
-                .'</div>'
-            ))
+            ->line('Kami menerima permintaan untuk verifikasi email Anda di TUTORKU.')
+            ->line('Gunakan kode berikut untuk menyelesaikan proses:')
+            ->line("**Kode OTP: {$this->code}**")
             ->line("Kode ini berlaku selama {$this->expiresMinutes} menit.")
-            ->line('Jangan bagikan kode ini ke siapapun, termasuk pihak yang mengaku sebagai admin TUTORKU.')
-            ->line('Jika kamu tidak meminta kode ini, abaikan saja email ini.');
+            ->line('Jangan berikan kode ini kepada siapapun.')
+            ->salutation('Salam, Tim TUTORKU');
     }
 }
