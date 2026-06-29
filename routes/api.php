@@ -252,5 +252,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
         Route::put('/withdrawals/{withdrawal}/status', [AdminWithdrawalController::class, 'updateStatus']);
+        // masuk
     });
 });
