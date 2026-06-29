@@ -1,6 +1,11 @@
 <?php
 
+use App\Http\Middleware\AuthenticateApi;
+use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureJsonResponse;
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureUserIsVerified;
+use App\Http\Middleware\TrustFrontendOrigins;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,7 +25,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
 
         $middleware->alias([
+            'auth.api' => AuthenticateApi::class,
             'role' => EnsureUserHasRole::class,
+            'account.active' => EnsureAccountIsActive::class,
+            'verified.user' => EnsureUserIsVerified::class,
+            'json.response' => EnsureJsonResponse::class,
+            'frontend.origin' => TrustFrontendOrigins::class,
+        ]);
+
+        $middleware->appendToGroup('api', [
+            EnsureJsonResponse::class,
+            TrustFrontendOrigins::class,
         ]);
 
         $middleware->trustProxies(at: '*');

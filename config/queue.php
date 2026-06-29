@@ -24,13 +24,9 @@ return [
     | used by your application. An example configuration is provided for
     | each backend supported by Laravel. You're also free to add more.
     |
-    | Drivers: "sync", "database", "beanstalkd", "sqs", "redis",
-    |          "deferred", "background", "failover", "null"
-    |
     */
 
     'connections' => [
-
         'sync' => [
             'driver' => 'sync',
         ],
@@ -41,7 +37,7 @@ return [
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            'after_commit' => env('DB_QUEUE_AFTER_COMMIT', false),
         ],
 
         'beanstalkd' => [
@@ -83,12 +79,8 @@ return [
 
         'failover' => [
             'driver' => 'failover',
-            'connections' => [
-                'database',
-                'deferred',
-            ],
+            'connections' => ['database', 'deferred'],
         ],
-
     ],
 
     /*
@@ -104,7 +96,7 @@ return [
 
     'batching' => [
         'database' => env('DB_CONNECTION', 'sqlite'),
-        'table' => 'job_batches',
+        'table' => env('DB_QUEUE_BATCH_TABLE', 'job_batches'),
     ],
 
     /*
@@ -116,14 +108,12 @@ return [
     | can control how and where failed jobs are stored. Laravel ships with
     | support for storing failed jobs in a simple file or in a database.
     |
-    | Supported drivers: "database-uuids", "dynamodb", "file", "null"
-    |
     */
 
     'failed' => [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'sqlite'),
-        'table' => 'failed_jobs',
+        'table' => env('DB_QUEUE_FAILED_TABLE', 'failed_jobs'),
     ],
 
 ];
