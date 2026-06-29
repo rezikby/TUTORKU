@@ -194,23 +194,32 @@ class AuthController extends Controller
                 ], 200);
             }
 
+            // Create user but DO NOT mark phone as verified yet. Send OTP for verification.
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => 'phone_' . Str::random(10) . '@TUTORKU.local',
                 'phone' => $phone,
-                'phone_verified_at' => now(),
                 'role' => 'siswa',
-                'status' => 'active',
+                'status' => 'pending',
             ]);
 
             UserSetting::create(['user_id' => $user->id]);
 
-            $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
+            try {
+                $this->otpService->send($phone, 'phone', $request->ip());
+                Log::info('User created from phone (unverified): ' . $user->id);
+            } catch (\RuntimeException $e) {
+                Log::error('Failed to send OTP on registration: ' . $e->getMessage());
+                return response()->json([
+                    'message' => 'Registrasi berhasil, namun pengiriman OTP gagal: ' . $e->getMessage(),
+                ], 500);
+            }
 
+            // Do not issue token until phone is verified
             return response()->json([
-                'message' => 'Registrasi berhasil.',
+                'message' => 'Registrasi berhasil. Kode OTP telah dikirim ke nomor telepon Anda. Silakan verifikasi untuk menyelesaikan registrasi.',
                 'user' => new UserResource($user->load('settings', 'tutorProfile')),
-                'token' => $token,
+                'requires_verification' => true,
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -322,6 +331,24 @@ class AuthController extends Controller
             }
 
             $user = User::where('phone', $phone)->first();
+
+            if ($user) {
+                // mark phone as verified and activate account
+                $user->forceFill([
+                    'phone_verified_at' => now(),
+                    'status' => 'active',
+                ])->save();
+
+                $tokenName = 'TUTORKU-' . $user->id . '-' . Str::random(6);
+                $token = $user->createToken($tokenName, ['*'], now()->addDay());
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'OTP berhasil diverifikasi. Akun aktif.',
+                    'user' => new UserResource($user->load('settings', 'tutorProfile')),
+                    'token' => $token->plainTextToken,
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
