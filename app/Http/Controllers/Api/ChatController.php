@@ -1,12 +1,11 @@
 <?php
 /**
  * FILE: backend/app/Http/Controllers/Api/ChatController.php
- * STATUS: DIUBAH (tambah typing indicator, fix validasi self-chat, error handling broadcast)
+ * STATUS: DIUBAH - Broadcast & Notification dinonaktifkan sementara
+ * ALASAN: Pusher/Reverb masih bermasalah, chat tetap berjalan tanpa realtime
  */
 
 namespace App\Http\Controllers\Api;
-
-// masujk
 
 use App\Events\ChatMessageSent;
 use App\Events\UserTyping;
@@ -135,14 +134,21 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        try {
-            broadcast(new ChatMessageSent($message))->toOthers();
-        } catch (\Exception $e) {
-            \Log::debug('Message broadcast failed (ignored): ' . $e->getMessage());
-        }
+        // ⚠️ BROADCAST SEMENTARA DINONAKTIFKAN - UNTUK TESTING
+        // Aktifkan kembali setelah Reverb berjalan dengan benar
+        // try {
+        //     broadcast(new ChatMessageSent($message))->toOthers();
+        // } catch (\Exception $e) {
+        //     \Log::debug('Message broadcast failed (ignored): ' . $e->getMessage());
+        // }
 
-        $receiver = $conversation->otherUser($request->user()->id);
-        $receiver->notify(new NewChatMessageNotification($message));
+        // ⚠️ NOTIFICATION SEMENTARA DINONAKTIFKAN
+        // $receiver = $conversation->otherUser($request->user()->id);
+        // try {
+        //     $receiver->notify(new NewChatMessageNotification($message));
+        // } catch (\Exception $e) {
+        //     \Log::debug('Notification failed (ignored): ' . $e->getMessage());
+        // }
 
         return new ChatMessageResource($message);
     }
@@ -156,11 +162,12 @@ class ChatController extends Controller
             'is_typing' => ['required', 'boolean'],
         ]);
 
-        try {
-            broadcast(new UserTyping($conversation->id, $request->user()->id, $validated['is_typing']))->toOthers();
-        } catch (\Exception $e) {
-            \Log::debug('Typing broadcast failed (ignored): ' . $e->getMessage());
-        }
+        // ⚠️ TYPING INDICATOR SEMENTARA DINONAKTIFKAN
+        // try {
+        //     broadcast(new UserTyping($conversation->id, $request->user()->id, $validated['is_typing']))->toOthers();
+        // } catch (\Exception $e) {
+        //     \Log::debug('Typing broadcast failed (ignored): ' . $e->getMessage());
+        // }
 
         return response()->json(['message' => 'OK']);
     }
@@ -195,11 +202,12 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        try {
-            broadcast(new ChatMessageSent($message))->toOthers();
-        } catch (\Exception $e) {
-            \Log::debug('Update message broadcast failed (ignored): ' . $e->getMessage());
-        }
+        // ⚠️ BROADCAST SEMENTARA DINONAKTIFKAN
+        // try {
+        //     broadcast(new ChatMessageSent($message))->toOthers();
+        // } catch (\Exception $e) {
+        //     \Log::debug('Update message broadcast failed (ignored): ' . $e->getMessage());
+        // }
 
         return new ChatMessageResource($message);
     }
@@ -236,11 +244,12 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        try {
-            broadcast(new ChatMessageSent($message))->toOthers();
-        } catch (\Exception $e) {
-            \Log::debug('Delete message broadcast failed (ignored): ' . $e->getMessage());
-        }
+        // ⚠️ BROADCAST SEMENTARA DINONAKTIFKAN
+        // try {
+        //     broadcast(new ChatMessageSent($message))->toOthers();
+        // } catch (\Exception $e) {
+        //     \Log::debug('Delete message broadcast failed (ignored): ' . $e->getMessage());
+        // }
 
         return new ChatMessageResource($message);
     }
@@ -252,3 +261,5 @@ class ChatController extends Controller
         abort_unless(in_array($userId, [$conversation->user_one_id, $conversation->user_two_id], true), 403);
     }
 }
+
+// mkta 
