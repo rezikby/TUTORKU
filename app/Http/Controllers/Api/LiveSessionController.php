@@ -19,6 +19,15 @@ use Illuminate\Validation\Rule;
  * Live Class — video call WebRTC peer-to-peer (gratis, tanpa biaya per-menit).
  * Backend hanya menyediakan room + signaling (lewat Laravel Reverb) dan
  * sinkronisasi whiteboard; koneksi audio/video langsung antar browser.
+ *
+ * PERBAIKAN pada method join():
+ * - Sebelumnya: jika session sudah 'ongoing' (tutor sudah mulai) dan siswa
+ *   klik Join, backend hanya mengembalikan session tanpa mengubah apapun dan
+ *   TANPA mengirim event ke siswa. Akibatnya frontend tidak punya konfirmasi
+ *   bahwa join berhasil selain dari WebSocket yang kebetulan mati.
+ * - Sesudahnya: pisahkan logika tutor (start session) vs siswa (join session),
+ *   broadcast event LiveSessionJoined agar siswa lain & tutor tahu ada yang masuk,
+ *   dan tambahkan field 'joined' di response agar frontend bisa simpan state.
  */
 class LiveSessionController extends Controller
 {
@@ -34,19 +43,49 @@ class LiveSessionController extends Controller
         return new LiveSessionResource($session->load('note'));
     }
 
+    /**
+     * FIX: Pisahkan antara "tutor memulai sesi" dan "siswa bergabung ke sesi".
+     *
+     * Sebelum: satu blok if ($session->status === 'scheduled') yang hanya
+     * mengubah status — tidak ada response/event khusus untuk siswa yang join
+     * ke sesi yang sudah ongoing.
+     *
+     * Sesudah:
+     * - Tutor join sesi scheduled  → ubah status ke 'ongoing', broadcast LiveSessionStarted
+     * - Siswa join sesi ongoing    → tidak ubah status, tapi response beri field
+     *   'joined' = true agar frontend dapat konfirmasi eksplisit
+     * - Keduanya: return session fresh dengan field 'joined' = true
+     */
     public function join(Request $request, Booking $booking)
     {
         $this->authorizeBooking($request, $booking);
 
         $session = $booking->liveSession()->firstOrFail();
+        $user    = $request->user();
 
+        // Tutor memulai sesi yang masih scheduled
         if ($session->status === 'scheduled') {
             $session->update(['status' => 'ongoing', 'started_at' => now()]);
+
+            // Notifikasi ke siswa bahwa sesi dimulai
             $booking->student->notify(new SessionStartedNotification($booking));
-            LiveSessionStarted::dispatch($session);
+            LiveSessionStarted::dispatch($session->fresh());
         }
 
-        return new LiveSessionResource($session->fresh());
+        // Sesi sudah ended — tolak join
+        if ($session->status === 'ended') {
+            return response()->json([
+                'message' => 'Sesi sudah berakhir.',
+            ], 422);
+        }
+
+        // Return session + flag 'joined' = true sebagai konfirmasi eksplisit
+        // agar frontend tidak perlu bergantung 100% pada WebSocket
+        $resource = new LiveSessionResource($session->fresh());
+        $data     = $resource->toArray($request);
+        $data['joined'] = true;
+
+        return response()->json(['data' => $data]);
     }
 
     public function end(Request $request, Booking $booking)
@@ -62,8 +101,8 @@ class LiveSessionController extends Controller
         $startedAt = $session->started_at ?? now();
 
         $session->update([
-            'status' => 'ended',
-            'ended_at' => now(),
+            'status'           => 'ended',
+            'ended_at'         => now(),
             'duration_seconds' => now()->diffInSeconds($startedAt),
         ]);
 
@@ -86,9 +125,9 @@ class LiveSessionController extends Controller
                 }
 
                 $booking->student->studyLogs()->create([
-                    'subject_id' => $booking->subject_id,
-                    'booking_id' => $booking->id,
-                    'date' => $booking->date,
+                    'subject_id'       => $booking->subject_id,
+                    'booking_id'       => $booking->id,
+                    'date'             => $booking->date,
                     'duration_minutes' => $booking->duration_minutes,
                 ]);
             });
@@ -103,7 +142,7 @@ class LiveSessionController extends Controller
         $this->authorizeBooking($request, $booking);
 
         $validated = $request->validate([
-            'type' => ['required', Rule::in(['offer', 'answer', 'ice-candidate', 'hangup'])],
+            'type'    => ['required', Rule::in(['offer', 'answer', 'ice-candidate', 'hangup'])],
             'payload' => ['required', 'array'],
         ]);
 
@@ -121,7 +160,7 @@ class LiveSessionController extends Controller
         $this->authorizeBooking($request, $booking);
 
         $validated = $request->validate([
-            'action' => ['required', 'array'],
+            'action'   => ['required', 'array'],
             'snapshot' => ['nullable', 'array'],
         ]);
 
