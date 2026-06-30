@@ -1,9 +1,8 @@
 <?php
 /**
  * FILE: backend/app/Http/Controllers/Api/ChatController.php
- * STATUS: DIUBAH (tambah typing indicator, fix validasi self-chat)
+ * STATUS: DIUBAH (tambah typing indicator, fix validasi self-chat, error handling broadcast)
  */
-
 
 namespace App\Http\Controllers\Api;
 
@@ -134,7 +133,11 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        broadcast(new ChatMessageSent($message))->toOthers();
+        try {
+            broadcast(new ChatMessageSent($message))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Message broadcast failed (ignored): ' . $e->getMessage());
+        }
 
         $receiver = $conversation->otherUser($request->user()->id);
         $receiver->notify(new NewChatMessageNotification($message));
@@ -151,7 +154,11 @@ class ChatController extends Controller
             'is_typing' => ['required', 'boolean'],
         ]);
 
-        broadcast(new UserTyping($conversation->id, $request->user()->id, $validated['is_typing']))->toOthers();
+        try {
+            broadcast(new UserTyping($conversation->id, $request->user()->id, $validated['is_typing']))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Typing broadcast failed (ignored): ' . $e->getMessage());
+        }
 
         return response()->json(['message' => 'OK']);
     }
@@ -186,7 +193,11 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        broadcast(new ChatMessageSent($message))->toOthers();
+        try {
+            broadcast(new ChatMessageSent($message))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Update message broadcast failed (ignored): ' . $e->getMessage());
+        }
 
         return new ChatMessageResource($message);
     }
@@ -223,7 +234,11 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        broadcast(new ChatMessageSent($message))->toOthers();
+        try {
+            broadcast(new ChatMessageSent($message))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Delete message broadcast failed (ignored): ' . $e->getMessage());
+        }
 
         return new ChatMessageResource($message);
     }
