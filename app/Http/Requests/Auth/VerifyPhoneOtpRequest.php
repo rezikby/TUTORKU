@@ -20,9 +20,21 @@ class VerifyPhoneOtpRequest extends FormRequest
     {
         return [
             'phone' => ['required', 'string', 'min:9', 'max:15'],
-            'code' => ['required', 'string', 'size:5'],
+            'code' => ['nullable', 'string', 'size:5'],
+            'otp' => ['nullable', 'string', 'size:5'],
             'remember' => ['nullable', 'boolean'],
             'device_name' => ['nullable', 'string', 'max:255'],
         ];
+    }
+
+    public function validated($key = null, $default = null)
+    {
+        $data = parent::validated($key, $default);
+
+        if (!isset($data['code']) && isset($data['otp'])) {
+            $data['code'] = $data['otp'];
+        }
+
+        return $data;
     }
 }
