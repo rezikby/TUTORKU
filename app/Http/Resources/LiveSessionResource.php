@@ -22,8 +22,12 @@ class LiveSessionResource extends JsonResource
             'ended_at' => $this->ended_at,
             'duration_seconds' => $this->duration_seconds,
             'whiteboard_snapshot' => $this->whiteboard_snapshot,
-            'note' => new SessionNoteResource($this->whenLoaded('note')),
+            'note' => $this->when(
+                $this->relationLoaded('note') && $this->note,
+                new SessionNoteResource($this->note),
+            ),
             'webrtc_stun_server' => config('services.webrtc.stun_server'),
         ];
     }
 }
+// perbaikan
