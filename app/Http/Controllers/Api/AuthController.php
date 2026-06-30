@@ -391,7 +391,7 @@ class AuthController extends Controller
                 return response()->json(['message' => $e->getMessage()], 429);
             }
 
-            RateLimiter::hit($rateLimitKey, 3600);
+            RateLimiter::hit($rateLimitKey, 120);
 
             return response()->json([
                 'message' => 'Kode OTP telah dikirim via WhatsApp ke nomor telepon kamu.',
