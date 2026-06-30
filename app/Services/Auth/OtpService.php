@@ -223,26 +223,40 @@ class OtpService
                 return;
             }
 
-            $response = Http::withHeaders([
-                'Authorization' => $token
-            ])->asForm()->post('https://api.fonnte.com/send', [
+            $payload = [
                 'target' => $phone,
                 'message' => $message,
-            ]);
+            ];
+
+            $response = Http::withHeaders([
+                'Authorization' => $token
+            ])->asForm()->post('https://api.fonnte.com/send', $payload);
 
             $result = $response->json();
+
+            Log::info('WhatsApp API response', [
+                'phone' => $phone,
+                'payload' => $payload,
+                'status' => $response->status(),
+                'response_body' => $result,
+            ]);
 
             if ($response->successful() && isset($result['status']) && $result['status']) {
                 Log::info('WhatsApp OTP berhasil dikirim', [
                     'phone' => $phone,
                     'status' => $result['status']
                 ]);
-            } else {
-                Log::error('WhatsApp OTP gagal dikirim', [
-                    'phone' => $phone,
-                    'response' => $result
-                ]);
+                return;
             }
+
+            $errorMessage = 'Gagal mengirim OTP WhatsApp. Provider response: ' . json_encode($result);
+            Log::error('WhatsApp OTP gagal dikirim', [
+                'phone' => $phone,
+                'status' => $response->status(),
+                'response' => $result,
+            ]);
+
+            throw new \RuntimeException($errorMessage);
         } catch (\Exception $e) {
             Log::error('WhatsApp OTP error: ' . $e->getMessage(), [
                 'phone' => $phone

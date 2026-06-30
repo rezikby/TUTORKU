@@ -371,22 +371,38 @@ class AuthController extends Controller
     {
         try {
             $validated = $request->validated();
-            $phone = $this->formatPhoneNumber($validated['phone']);
+            $originalPhone = $validated['phone'];
+            $phone = $this->formatPhoneNumber($originalPhone);
 
-            Log::info('Sending OTP to: ' . $phone);
+            Log::info('Sending OTP to phone', [
+                'original_phone' => $originalPhone,
+                'normalized_phone' => $phone,
+            ]);
 
             try {
                 $otp = $this->otpService->send($phone, 'phone', $request->ip());
-                Log::info('OTP created: ' . $otp->code . ' untuk ' . $phone);
+                Log::info('OTP created', [
+                    'code' => $otp->code,
+                    'phone' => $phone,
+                    'purpose' => 'phone',
+                ]);
             } catch (\RuntimeException $e) {
-                return response()->json(['message' => $e->getMessage()], 429);
+                Log::error('Send OTP runtime error', [
+                    'original_phone' => $originalPhone,
+                    'normalized_phone' => $phone,
+                    'message' => $e->getMessage(),
+                ]);
+                return response()->json(['message' => 'Gagal mengirim OTP: ' . $e->getMessage()], 500);
             }
 
             return response()->json([
                 'message' => 'Kode OTP telah dikirim via WhatsApp ke nomor telepon kamu.',
+                'phone' => $phone,
             ]);
         } catch (\Exception $e) {
-            Log::error('Send OTP error: ' . $e->getMessage());
+            Log::error('Send OTP error', [
+                'message' => $e->getMessage(),
+            ]);
             return response()->json([
                 'message' => 'Terjadi kesalahan saat mengirim OTP: ' . $e->getMessage()
             ], 500);

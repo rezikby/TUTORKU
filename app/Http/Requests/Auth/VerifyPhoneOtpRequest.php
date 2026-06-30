@@ -19,7 +19,7 @@ class VerifyPhoneOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string', 'min:9', 'max:15'],
+            'phone' => ['required', 'string', 'min:9', 'max:20', 'regex:/^[0-9+\s\-()]+$/'],
             'code' => ['nullable', 'string', 'size:5'],
             'otp' => ['nullable', 'string', 'size:5'],
             'remember' => ['nullable', 'boolean'],

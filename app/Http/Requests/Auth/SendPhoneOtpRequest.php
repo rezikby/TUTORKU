@@ -19,14 +19,14 @@ class SendPhoneOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string', 'min:9', 'max:15', 'regex:/^[0-9+]+$/'],
+            'phone' => ['required', 'string', 'min:9', 'max:20', 'regex:/^[0-9+\s\-()]+$/'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'phone.regex' => 'Nomor telepon hanya boleh berisi angka.',
+            'phone.regex' => 'Nomor telepon hanya boleh berisi angka, +, spasi, tanda hubung, atau tanda kurung.',
         ];
     }
 }
