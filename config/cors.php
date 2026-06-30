@@ -6,11 +6,13 @@ return [
 
     'allowed_methods' => ['*'],
 
-  'allowed_origins' => [
-    env('FRONTEND_URL', 'http://localhost:5173'),
-    'https://rezi.yopaaa.xyz',
-    'http://rezi.yopaaa.xyz',
-],
+    'allowed_origins' => array_values(array_unique([
+        env('FRONTEND_URL', 'http://localhost:5173'),
+        'https://rezi.nlabs.id',
+        'http://rezi.nlabs.id',
+        'https://rezi-laravel.nlabs.id',
+        'http://rezi-laravel.nlabs.id',
+    ])),
 
 
     'allowed_origins_patterns' => [],
