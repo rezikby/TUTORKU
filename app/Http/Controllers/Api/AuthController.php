@@ -54,7 +54,7 @@ class AuthController extends Controller
                 ->stateless()
                 ->redirectUrl(config('services.google.redirect'))
                 ->user();
-            
+
             Log::info('Google Callback - Data user diterima', [
                 'email' => $googleUser->getEmail(),
                 'name' => $googleUser->getName(),
@@ -274,7 +274,7 @@ class AuthController extends Controller
             $existingUser = User::where('phone', $phone)->first();
             if ($existingUser) {
                 $token = $existingUser->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
-                
+
                 return response()->json([
                     'message' => 'Login berhasil.',
                     'user' => new UserResource($existingUser->load('settings', 'tutorProfile')),
@@ -415,9 +415,9 @@ class AuthController extends Controller
             $validated = $request->validated();
             $phone = $this->formatPhoneNumber($validated['phone']);
 
-            Log::info('Verifying OTP for: ' . $phone . ' with code: ' . $validated['code']);
+            Log::info('Verifying OTP for: ' . $phone . ' with code: ' . ($validated['code'] ?? $validated['otp'] ?? ''));
 
-            $result = $this->otpService->verify($phone, 'phone', $validated['code']);
+            $result = $this->otpService->verify($phone, 'phone', $validated['code'] ?? $validated['otp']);
 
             if (! $result['success']) {
                 return response()->json(['message' => $result['message']], 422);
@@ -425,31 +425,49 @@ class AuthController extends Controller
 
             $user = User::where('phone', $phone)->first();
 
-            if ($user) {
-                // mark phone as verified and activate account
-                $user->forceFill([
+            if (! $user) {
+                $user = User::create([
+                    'name' => $request->input('name', 'Pengguna TUTORKU'),
+                    'email' => 'phone_' . Str::random(10) . '@TUTORKU.local',
+                    'phone' => $phone,
+                    'role' => 'siswa',
+                    'status' => 'active',
                     'phone_verified_at' => now(),
+                ]);
+
+                UserSetting::create(['user_id' => $user->id]);
+
+                Log::info('VerifyPhoneOtp - User baru dibuat saat verifikasi', [
+                    'phone' => $phone,
+                    'user_id' => $user->id,
+                ]);
+            } else {
+                $user->forceFill([
+                    'phone_verified_at' => $user->phone_verified_at ?? now(),
                     'status' => 'active',
                 ])->save();
-
-                $tokenName = 'TUTORKU-' . $user->id . '-' . Str::random(6);
-                $token = $user->createToken($tokenName, ['*'], now()->addDay());
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'OTP berhasil diverifikasi. Akun aktif.',
-                    'user' => new UserResource($user->load('settings', 'tutorProfile')),
-                    'token' => $token->plainTextToken,
-                ]);
             }
+
+            if ($user->status === 'suspended') {
+                return response()->json([
+                    'message' => 'Akun kamu telah dinonaktifkan. Hubungi admin TUTORKU.',
+                ], 403);
+            }
+
+            $tokenName = 'TUTORKU-' . $user->id . '-' . Str::random(6);
+            $token = $user->createToken($tokenName, ['*'], now()->addDay());
 
             return response()->json([
                 'success' => true,
-                'message' => 'OTP berhasil diverifikasi.',
-                'phone' => $phone,
+                'message' => 'OTP berhasil diverifikasi. Akun aktif.',
+                'user' => new UserResource($user->load('settings', 'tutorProfile')),
+                'token' => $token->plainTextToken,
+                'role' => $user->role,
             ]);
         } catch (\Exception $e) {
-            Log::error('Verify OTP error: ' . $e->getMessage());
+            Log::error('Verify OTP error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'message' => 'Terjadi kesalahan saat verifikasi OTP'
             ], 500);
@@ -506,7 +524,7 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             if (!$user) {
                 return response()->json([
                     'message' => 'Unauthenticated'
