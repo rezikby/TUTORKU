@@ -300,7 +300,7 @@ class AuthController extends Controller
                 Log::error('Failed to send OTP on registration: ' . $e->getMessage());
                 return response()->json([
                     'message' => 'Registrasi berhasil, namun pengiriman OTP gagal: ' . $e->getMessage(),
-                ], 500);
+                ], 429);
             }
 
             // Do not issue token until phone is verified

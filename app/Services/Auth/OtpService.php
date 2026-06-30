@@ -43,6 +43,10 @@ class OtpService
 
             if ($lastSent && $lastSent->created_at->diffInSeconds(now()) < $this->resendSeconds) {
                 $wait = $this->resendSeconds - $lastSent->created_at->diffInSeconds(now());
+                $wait = (int) ceil($wait);
+                if ($wait < 1) {
+                    $wait = 1;
+                }
                 throw new \RuntimeException("Mohon tunggu {$wait} detik sebelum meminta OTP baru.");
             }
 
