@@ -102,4 +102,15 @@ return [
         'secret_key' => env('RECAPTCHA_SECRET_KEY'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Groq AI (Free & Unlimited Chat)
+    |--------------------------------------------------------------------------
+    */
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY'),
+        'model' => env('GROQ_MODEL', 'mixtral-8x7b-32768'),
+        'api_url' => 'https://api.groq.com/openai/v1/chat/completions',
+    ],
+
 ];

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Admin\TutorVerificationController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Api\AboutController;
+use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\ChatController;
@@ -151,6 +152,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/bookings/{booking}/live-session/whiteboard', [LiveSessionController::class, 'whiteboard']);
     Route::post('/bookings/{booking}/session-note', [SessionNoteController::class, 'store']);
     Route::get('/bookings/{booking}/session-note', [SessionNoteController::class, 'show']);
+
+    // AI Chat (Groq - Free & Unlimited)
+    Route::post('/ai/chat', [AiChatController::class, 'chat']);
+    Route::post('/ai/chat-in-conversation/{conversationId}', [AiChatController::class, 'chatInConversation']);
 
     // Chat
     Route::get('/chat/conversations', [ChatController::class, 'index']);
