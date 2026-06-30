@@ -1,8 +1,7 @@
 <?php
 /**
  * FILE: backend/app/Http/Controllers/Api/ChatController.php
- * STATUS: DIUBAH - Broadcast & Notification dinonaktifkan sementara
- * ALASAN: Pusher/Reverb masih bermasalah, chat tetap berjalan tanpa realtime
+ * STATUS: SEMUA BROADCAST AKTIF ✅
  */
 
 namespace App\Http\Controllers\Api;
@@ -39,7 +38,6 @@ class ChatController extends Controller
         return ChatConversationResource::collection($conversations);
     }
 
-    /** Mulai / ambil percakapan dengan user lain (misal dari halaman Detail Tutor). */
     public function start(Request $request)
     {
         $validated = $request->validate([
@@ -134,26 +132,22 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        // ⚠️ BROADCAST SEMENTARA DINONAKTIFKAN - UNTUK TESTING
-        // Aktifkan kembali setelah Reverb berjalan dengan benar
-        // try {
-        //     broadcast(new ChatMessageSent($message))->toOthers();
-        // } catch (\Exception $e) {
-        //     \Log::debug('Message broadcast failed (ignored): ' . $e->getMessage());
-        // }
+        try {
+            broadcast(new ChatMessageSent($message))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Message broadcast failed (ignored): ' . $e->getMessage());
+        }
 
-        // ⚠️ NOTIFICATION SEMENTARA DINONAKTIFKAN
-        // $receiver = $conversation->otherUser($request->user()->id);
-        // try {
-        //     $receiver->notify(new NewChatMessageNotification($message));
-        // } catch (\Exception $e) {
-        //     \Log::debug('Notification failed (ignored): ' . $e->getMessage());
-        // }
+        $receiver = $conversation->otherUser($request->user()->id);
+        try {
+            $receiver->notify(new NewChatMessageNotification($message));
+        } catch (\Exception $e) {
+            \Log::debug('Notification failed (ignored): ' . $e->getMessage());
+        }
 
         return new ChatMessageResource($message);
     }
 
-    /** POST /api/chat/conversations/{conversation}/typing — Typing Indicator realtime. */
     public function typing(Request $request, ChatConversation $conversation)
     {
         $this->authorizeConversation($request, $conversation);
@@ -162,12 +156,11 @@ class ChatController extends Controller
             'is_typing' => ['required', 'boolean'],
         ]);
 
-        // ⚠️ TYPING INDICATOR SEMENTARA DINONAKTIFKAN
-        // try {
-        //     broadcast(new UserTyping($conversation->id, $request->user()->id, $validated['is_typing']))->toOthers();
-        // } catch (\Exception $e) {
-        //     \Log::debug('Typing broadcast failed (ignored): ' . $e->getMessage());
-        // }
+        try {
+            broadcast(new UserTyping($conversation->id, $request->user()->id, $validated['is_typing']))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Typing broadcast failed (ignored): ' . $e->getMessage());
+        }
 
         return response()->json(['message' => 'OK']);
     }
@@ -184,7 +177,6 @@ class ChatController extends Controller
         return response()->json(['message' => 'OK']);
     }
 
-    /** PATCH /api/chat/messages/{message} — Update message content */
     public function updateMessage(Request $request, ChatMessage $message)
     {
         $userId = $request->user()->id;
@@ -202,17 +194,15 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        // ⚠️ BROADCAST SEMENTARA DINONAKTIFKAN
-        // try {
-        //     broadcast(new ChatMessageSent($message))->toOthers();
-        // } catch (\Exception $e) {
-        //     \Log::debug('Update message broadcast failed (ignored): ' . $e->getMessage());
-        // }
+        try {
+            broadcast(new ChatMessageSent($message))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Update message broadcast failed (ignored): ' . $e->getMessage());
+        }
 
         return new ChatMessageResource($message);
     }
 
-    /** DELETE /api/chat/messages/{message} — Delete message with scope (me or all) */
     public function deleteMessage(Request $request, ChatMessage $message)
     {
         $userId = $request->user()->id;
@@ -244,12 +234,11 @@ class ChatController extends Controller
 
         $message->load('sender');
 
-        // ⚠️ BROADCAST SEMENTARA DINONAKTIFKAN
-        // try {
-        //     broadcast(new ChatMessageSent($message))->toOthers();
-        // } catch (\Exception $e) {
-        //     \Log::debug('Delete message broadcast failed (ignored): ' . $e->getMessage());
-        // }
+        try {
+            broadcast(new ChatMessageSent($message))->toOthers();
+        } catch (\Exception $e) {
+            \Log::debug('Delete message broadcast failed (ignored): ' . $e->getMessage());
+        }
 
         return new ChatMessageResource($message);
     }
@@ -262,4 +251,5 @@ class ChatController extends Controller
     }
 }
 
-// mkta 
+
+//update
