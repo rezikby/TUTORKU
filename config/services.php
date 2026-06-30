@@ -113,4 +113,15 @@ return [
         'api_url' => 'https://openrouter.ai/api/v1/chat/completions',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Groq AI (Free & Unlimited Chat)
+    |--------------------------------------------------------------------------
+    */
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY'),
+        'model' => env('GROQ_MODEL', 'mixtral-8x7b-32768'),
+        'api_url' => 'https://api.groq.com/v1/chat/completions',
+    ],
+
 ];
