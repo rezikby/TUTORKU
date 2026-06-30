@@ -41,7 +41,7 @@ class OtpService
                 ->latest('created_at')
                 ->first();
 
-            if ($lastSent && $lastSent->created_at->diffInSeconds(now()) < $this->resendSeconds) {
+            if ($purpose !== 'phone' && $lastSent && $lastSent->created_at->diffInSeconds(now()) < $this->resendSeconds) {
                 $wait = $this->resendSeconds - $lastSent->created_at->diffInSeconds(now());
                 $wait = (int) ceil($wait);
                 if ($wait < 1) {

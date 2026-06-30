@@ -375,23 +375,12 @@ class AuthController extends Controller
 
             Log::info('Sending OTP to: ' . $phone);
 
-            $rateLimitKey = 'otp-phone:' . $request->ip();
-
-            if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
-                $seconds = RateLimiter::availableIn($rateLimitKey);
-                return response()->json([
-                    'message' => "Terlalu banyak permintaan OTP. Coba lagi dalam {$seconds} detik.",
-                ], 429);
-            }
-
             try {
                 $otp = $this->otpService->send($phone, 'phone', $request->ip());
                 Log::info('OTP created: ' . $otp->code . ' untuk ' . $phone);
             } catch (\RuntimeException $e) {
                 return response()->json(['message' => $e->getMessage()], 429);
             }
-
-            RateLimiter::hit($rateLimitKey, 120);
 
             return response()->json([
                 'message' => 'Kode OTP telah dikirim via WhatsApp ke nomor telepon kamu.',
