@@ -104,13 +104,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Groq AI (Free & Unlimited Chat)
+    | OpenRouter AI (Free & Unlimited Chat)
     |--------------------------------------------------------------------------
     */
-    'groq' => [
-        'api_key' => env('GROQ_API_KEY'),
-        'model' => env('GROQ_MODEL', 'mixtral-8x7b-32768'),
-        'api_url' => 'https://api.groq.com/openai/v1/chat/completions',
+    'openrouter' => [
+        'api_key' => env('OPENROUTER_API_KEY'),
+        'model' => env('OPENROUTER_MODEL', 'mistral-7b-instruct'),
+        'api_url' => 'https://openrouter.ai/api/v1/chat/completions',
     ],
 
 ];
