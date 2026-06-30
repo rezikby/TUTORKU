@@ -7,6 +7,7 @@ use App\Events\ProfileUpdated;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -96,7 +97,14 @@ class ProfileController extends Controller
 
         $fresh = $user->fresh()->load('settings', 'tutorProfile.subjects');
 
-        event(new ProfileUpdated($fresh));
+        // Broadcast event dibungkus try/catch agar kegagalan koneksi ke
+        // server WebSocket (Reverb/Pusher) tidak menggagalkan response API.
+        // Data profil di atas sudah berhasil disimpan terlepas dari hasil broadcast ini.
+        try {
+            event(new ProfileUpdated($fresh));
+        } catch (\Throwable $e) {
+            Log::warning('Gagal broadcast ProfileUpdated: ' . $e->getMessage());
+        }
 
         return new UserResource($fresh);
     }
