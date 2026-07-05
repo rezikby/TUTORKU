@@ -4,14 +4,14 @@ namespace App\Events;
 
 use App\Http\Resources\ChatMessageResource;
 use App\Models\ChatMessage;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
-class ChatMessageSent implements ShouldBroadcast
+class ChatMessageSent implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -41,7 +41,7 @@ class ChatMessageSent implements ShouldBroadcast
                 }
             }
         } catch (\Exception $e) {
-            \Log::warning('Failed to get recipient for chat notification', [
+            Log::warning('Failed to get recipient for chat notification', [
                 'message_id' => $this->message->id,
                 'error' => $e->getMessage(),
             ]);

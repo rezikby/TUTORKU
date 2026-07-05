@@ -97,7 +97,7 @@ class TutorController extends Controller
         $tutorProfile->increment('view_count');
 
         $tutorProfile->load([
-            'user', 'subjects', 'educations', 'experiences', 'certificates', 'availabilities',
+            'user', 'subjects', 'educations', 'experiences', 'certificates', 'availabilities.subject',
         ]);
 
         $tutorProfile->loadCount(['bookings' => fn ($query) => $query->whereNotIn('status', ['cancelled', 'rejected'])]);
@@ -167,10 +167,28 @@ class TutorController extends Controller
                 'date' => $date->toDateString(),
                 'day_of_week' => $date->dayOfWeek,
                 'has_available_slot' => count(array_filter($slots, fn ($s) => $s['available'])) > 0,
+                'has_schedule' => $this->hasScheduleForDate($availabilities, $date),
             ];
         }
 
         return response()->json(['days' => $days]);
+    }
+
+    protected function hasScheduleForDate($availabilities, Carbon $date): bool
+    {
+        if ($date->isBefore(Carbon::today())) {
+            return false;
+        }
+
+        $dateAvailabilities = $availabilities->filter(function ($availability) use ($date) {
+            return $availability->date && $availability->date->isSameDay($date);
+        });
+
+        if ($dateAvailabilities->isNotEmpty()) {
+            return true;
+        }
+
+        return $availabilities->where('date', null)->where('day_of_week', $date->dayOfWeek)->isNotEmpty();
     }
 
     /** Hitung slot jam tersedia untuk satu tanggal: dari availability dikurangi booking yang sudah ada. */
@@ -181,21 +199,41 @@ class TutorController extends Controller
             return [];
         }
 
-        $dayAvailabilities = $availabilities->where('day_of_week', $date->dayOfWeek);
+        $dateAvailabilities = $availabilities->filter(function ($availability) use ($date) {
+            return $availability->date && $availability->date->isSameDay($date);
+        });
+
+        if ($dateAvailabilities->isNotEmpty()) {
+            $dayAvailabilities = $dateAvailabilities;
+        } else {
+            $dayAvailabilities = $availabilities->where('date', null)->where('day_of_week', $date->dayOfWeek);
+        }
 
         if ($dayAvailabilities->isEmpty()) {
             return [];
         }
 
-        // Slot dianggap terpakai hanya jika booking sudah confirmed/completed.
-        // Booking yang masih pending tidak mengunci pilihan slot karena slot baru
-        // dikunci setelah pembayaran benar-benar berhasil.
-        $bookedTimes = Booking::where('tutor_profile_id', $tutorProfile->id)
+        // Slot dianggap terpakai hanya untuk booking aktif (pending/confirmed).
+        // Setelah sesi selesai dan status menjadi completed, waktu tersebut harus
+        // tersedia kembali untuk ditampilkan ulang di kalender jika tanggal belum lewat.
+        $bookedTimes = [];
+
+        Booking::where('tutor_profile_id', $tutorProfile->id)
             ->where('date', $date->toDateString())
-            ->whereIn('status', ['confirmed', 'completed'])
-            ->pluck('start_time')
-            ->map(fn ($t) => substr($t, 0, 5))
-            ->all();
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->get()
+            ->each(function (Booking $booking) use (&$bookedTimes) {
+                $startTime = Carbon::parse($booking->start_time);
+                $endTime = $startTime->copy()->addMinutes($booking->duration_minutes);
+
+                $cursor = $startTime->copy();
+                while ($cursor->lt($endTime)) {
+                    $bookedTimes[] = $cursor->format('H:i');
+                    $cursor->addMinutes(10);
+                }
+            });
+
+        $bookedTimes = array_values(array_unique($bookedTimes));
 
         $slots = [];
 
@@ -212,7 +250,7 @@ class TutorController extends Controller
                     'available' => ! in_array($label, $bookedTimes, true) && ! $isPastToday,
                 ];
 
-                $cursor->addHour();
+                $cursor->addMinutes(10);
             }
         }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\LiveSessionStarted;
+use App\Events\SlotsUpdated;
 use App\Events\WebRtcSignal;
 use App\Events\WhiteboardUpdated;
 use App\Http\Controllers\Controller;
@@ -10,8 +11,11 @@ use App\Http\Resources\LiveSessionResource;
 use App\Models\Booking;
 use App\Models\LiveSession;
 use App\Notifications\SessionStartedNotification;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -98,12 +102,21 @@ class LiveSessionController extends Controller
             return new LiveSessionResource($session);
         }
 
-        $startedAt = $session->started_at ?? now();
+        $now = now();
+        $startedAt = $session->started_at ?? $now;
+        $totalPausedSeconds = $session->total_paused_seconds ?? 0;
+
+        if ($session->paused_at) {
+            $totalPausedSeconds += $this->calculatePausedSeconds($now, $session->paused_at);
+        }
+
+        $durationSeconds = max(0, $now->diffInSeconds($startedAt) - $totalPausedSeconds);
 
         $session->update([
             'status'           => 'ended',
-            'ended_at'         => now(),
-            'duration_seconds' => now()->diffInSeconds($startedAt),
+            'ended_at'         => $now,
+            'paused_at'        => null,
+            'duration_seconds' => $durationSeconds,
         ]);
 
         if ($booking->status !== 'completed') {
@@ -133,7 +146,92 @@ class LiveSessionController extends Controller
             });
         }
 
+        try {
+            event(new SlotsUpdated($booking->tutor_profile_id, $booking->date));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to dispatch SlotsUpdated event on live session end', [
+                'error' => $e->getMessage(),
+                'booking_id' => $booking->id,
+            ]);
+        }
+
+        try {
+            ChatConversation::where('booking_id', $booking->id)->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to delete session-specific chat conversation on session end', [
+                'error' => $e->getMessage(),
+                'booking_id' => $booking->id,
+            ]);
+        }
+
         return new LiveSessionResource($session->fresh());
+    }
+
+    public function pause(Request $request, Booking $booking)
+    {
+        $this->authorizeBooking($request, $booking);
+        $user = $request->user();
+
+        abort_unless(
+            $user->isAdmin() || $user->id === $booking->tutorProfile->user_id,
+            403,
+            'Hanya tutor atau admin yang dapat menjeda sesi.'
+        );
+
+        $session = $booking->liveSession()->firstOrFail();
+
+        if ($session->status === 'paused') {
+            return new LiveSessionResource($session);
+        }
+
+        if ($session->status !== 'ongoing') {
+            return response()->json([
+                'message' => 'Sesi hanya dapat dijeda ketika status sedang berlangsung.',
+            ], 422);
+        }
+
+        $session->update([
+            'status'            => 'paused',
+            'paused_at'         => now(),
+        ]);
+
+        return new LiveSessionResource($session->fresh());
+    }
+
+    public function resume(Request $request, Booking $booking)
+    {
+        $this->authorizeBooking($request, $booking);
+        $user = $request->user();
+
+        abort_unless(
+            $user->isAdmin() || $user->id === $booking->tutorProfile->user_id,
+            403,
+            'Hanya tutor atau admin yang dapat melanjutkan sesi.'
+        );
+
+        $session = $booking->liveSession()->firstOrFail();
+
+        if ($session->status !== 'paused') {
+            return new LiveSessionResource($session);
+        }
+
+        $pausedAt = $session->paused_at ?? now();
+        $additionalPausedSeconds = $this->calculatePausedSeconds(now(), $pausedAt);
+
+        $session->update([
+            'status'                => 'ongoing',
+            'paused_at'             => null,
+            'total_paused_seconds'  => ($session->total_paused_seconds ?? 0) + $additionalPausedSeconds,
+        ]);
+
+        return new LiveSessionResource($session->fresh());
+    }
+
+    protected function calculatePausedSeconds(CarbonInterface $now, CarbonInterface $pausedAt): int
+    {
+        $seconds = $pausedAt->diffInSeconds($now, false);
+
+        return max(0, (int) abs($seconds));
     }
 
     /** Kirim sinyal WebRTC (offer / answer / ice-candidate / hangup) ke lawan bicara di room. */
@@ -142,11 +240,44 @@ class LiveSessionController extends Controller
         $this->authorizeBooking($request, $booking);
 
         $validated = $request->validate([
-            'type'    => ['required', Rule::in(['offer', 'answer', 'ice-candidate', 'hangup'])],
+            'type'    => ['required', Rule::in(['offer', 'answer', 'ice-candidate', 'hangup', 'chunked-signal'])],
             'payload' => ['required', 'array'],
         ]);
 
         $session = $booking->liveSession()->firstOrFail();
+
+        Log::debug('WebRTC signal payload received', [
+            'booking_id' => $booking->id,
+            'room_id' => $session->room_id,
+            'from_user_id' => $request->user()->id,
+            'type' => $validated['type'],
+            'payload_keys' => array_keys($validated['payload']),
+            'payload_summary' => match ($validated['type']) {
+                'offer', 'answer' => [
+                    'sdp_length' => is_string($validated['payload']['sdp'] ?? null)
+                        ? strlen($validated['payload']['sdp'])
+                        : null,
+                    'type' => $validated['payload']['type'] ?? null,
+                ],
+                'ice-candidate' => [
+                    'candidate_exists' => isset($validated['payload']['candidate']),
+                    'sdpMid' => $validated['payload']['sdpMid'] ?? null,
+                    'sdpMLineIndex' => $validated['payload']['sdpMLineIndex'] ?? null,
+                ],
+                'chunked-signal' => [
+                    'baseType' => $validated['payload']['baseType'] ?? null,
+                    'chunkIndex' => $validated['payload']['chunkIndex'] ?? null,
+                    'chunkCount' => $validated['payload']['chunkCount'] ?? null,
+                ],
+                default => [],
+            },
+        ]);
+
+        Log::debug('Broadcasting WebRTC signal to presence channel', [
+            'room_id' => $session->room_id,
+            'from_user_id' => $request->user()->id,
+            'type' => $validated['type'],
+        ]);
 
         broadcast(new WebRtcSignal($session->room_id, $request->user()->id, $validated['type'], $validated['payload']))
             ->toOthers();

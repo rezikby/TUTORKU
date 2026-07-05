@@ -20,6 +20,8 @@ class LiveSessionResource extends JsonResource
             'status' => $this->status,
             'started_at' => $this->started_at,
             'ended_at' => $this->ended_at,
+            'paused_at' => $this->paused_at,
+            'total_paused_seconds' => $this->total_paused_seconds,
             'duration_seconds' => $this->duration_seconds,
             'whiteboard_snapshot' => $this->whiteboard_snapshot,
             'note' => $this->when(
@@ -27,6 +29,9 @@ class LiveSessionResource extends JsonResource
                 new SessionNoteResource($this->note),
             ),
             'webrtc_stun_server' => config('services.webrtc.stun_server'),
+            'webrtc_turn_server' => config('services.webrtc.turn_server'),
+            'webrtc_turn_username' => config('services.webrtc.turn_username'),
+            'webrtc_turn_password' => config('services.webrtc.turn_password'),
         ];
     }
 }

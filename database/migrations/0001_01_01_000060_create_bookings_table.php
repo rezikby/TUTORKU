@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('subject_id')->nullable()->constrained()->nullOnDelete();
             $table->date('date');
             $table->time('start_time');
-            $table->unsignedSmallInteger('duration_minutes')->default(60);
+            $table->unsignedSmallInteger('duration_minutes')->default(10);
             $table->enum('mode', ['online', 'offline'])->default('online');
             $table->text('location_address')->nullable();
             $table->unsignedInteger('price')->default(0);

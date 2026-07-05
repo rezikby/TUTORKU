@@ -16,10 +16,12 @@ use App\Models\TutorProfile;
 use App\Models\LiveSession;
 use App\Notifications\BookingStatusNotification;
 use App\Services\Payment\PaymentGatewayFactory;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Events\SlotsUpdated;
 
 class BookingController extends Controller
 {
@@ -74,18 +76,26 @@ class BookingController extends Controller
 
         try {
             $booking = DB::transaction(function () use ($validated, $student, $tutorProfile, $price, $serviceFee) {
-                // Slot hanya dianggap terpakai setelah pembayaran berhasil.
-                // Booking pending tidak boleh mengunci slot, sehingga banyak siswa dapat
-                // membuat booking pending pada slot yang sama sampai satu pembayaran berhasil.
+                $newStart = Carbon::parse($validated['start_time']);
+                $newEnd = $newStart->copy()->addMinutes($validated['duration_minutes']);
+
                 $slotTaken = Booking::where('tutor_profile_id', $tutorProfile->id)
                     ->where('date', $validated['date'])
-                    ->where('start_time', $validated['start_time'])
-                    ->whereIn('status', ['confirmed', 'completed'])
+                    ->whereNotIn('status', ['cancelled', 'rejected'])
                     ->lockForUpdate()
-                    ->exists();
+                    ->get()
+                    ->contains(function (Booking $existing) use ($newStart, $newEnd) {
+                        $existingStart = Carbon::parse($existing->start_time);
+                        $existingEnd = $existingStart->copy()->addMinutes($existing->duration_minutes);
+                        return $newStart->lt($existingEnd) && $existingStart->lt($newEnd);
+                    });
 
                 if ($slotTaken) {
                     throw new \RuntimeException('Slot jam ini sudah dibooking. Silakan pilih jam lain.');
+                }
+
+                if (! empty($validated['subject_id']) && ! $tutorProfile->subjects()->where('subjects.id', $validated['subject_id'])->exists()) {
+                    throw new \RuntimeException('Mapel tidak valid untuk tutor ini.');
                 }
 
                 $booking = Booking::create([
@@ -126,6 +136,13 @@ class BookingController extends Controller
                     $booking->update(['status' => 'confirmed']);
                     $payment->update(['status' => 'paid']);
 
+                    // notify other clients that slots for this tutor/date changed
+                    try {
+                        event(new SlotsUpdated($tutorProfile->id, $booking->date));
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to dispatch SlotsUpdated event', ['error' => $e->getMessage()]);
+                    }
+
                     return $booking;
                 }
 
@@ -162,7 +179,7 @@ class BookingController extends Controller
     {
         $this->authorizeAccess($request, $booking);
 
-        $booking->load(['tutorProfile.user', 'student', 'subject', 'payment', 'liveSession.note', 'review']);
+        $booking->load(['tutorProfile.user', 'tutorProfile.availabilities', 'student', 'subject', 'payment', 'liveSession.note', 'review']);
 
         return new BookingResource($booking);
     }
@@ -186,6 +203,13 @@ class BookingController extends Controller
 
         if ($booking->status !== 'confirmed') {
             $booking->update(['status' => 'confirmed']);
+        }
+
+        // broadcast slot update so other clients refresh availability for this tutor/date
+        try {
+            event(new SlotsUpdated($booking->tutor_profile_id, $booking->date));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to dispatch SlotsUpdated event on confirm', ['error' => $e->getMessage(), 'booking_id' => $booking->id]);
         }
 
         $booking->liveSession()->firstOrCreate(
@@ -245,6 +269,13 @@ class BookingController extends Controller
             // Finally delete the booking itself
             $booking->delete();
         });
+
+        // Broadcast that slots may have become available after cancellation
+        try {
+            event(new SlotsUpdated($booking->tutor_profile_id, $booking->date));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to dispatch SlotsUpdated event on cancel', ['error' => $e->getMessage(), 'booking_id' => $booking->id]);
+        }
 
         return response()->json(['message' => 'Booking dibatalkan dan dihapus dari database.']);
     }

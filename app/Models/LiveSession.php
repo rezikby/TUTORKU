@@ -12,7 +12,7 @@ class LiveSession extends Model
 
     protected $fillable = [
         'booking_id', 'room_id', 'status', 'started_at', 'ended_at',
-        'duration_seconds', 'whiteboard_snapshot',
+        'paused_at', 'total_paused_seconds', 'duration_seconds', 'whiteboard_snapshot',
     ];
 
     protected function casts(): array
@@ -20,6 +20,7 @@ class LiveSession extends Model
         return [
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
+            'paused_at' => 'datetime',
             'whiteboard_snapshot' => 'array',
         ];
     }

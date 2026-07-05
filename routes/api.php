@@ -91,6 +91,9 @@ Route::post('/contact', [ContactController::class, 'store']);
 Route::post('/payments/webhook/midtrans', [PaymentController::class, 'midtransWebhook']);
 Route::post('/payments/webhook/xendit', [PaymentController::class, 'xenditWebhook']);
 
+// AI Chat (Groq - Free & Unlimited)
+Route::post('/ai/chat', [AiChatController::class, 'chat']);
+
 // ───────── AUTHENTICATED ROUTES ─────────
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -147,15 +150,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Live Session
     Route::get('/bookings/{booking}/live-session', [LiveSessionController::class, 'show']);
     Route::post('/bookings/{booking}/live-session/join', [LiveSessionController::class, 'join']);
+    Route::post('/bookings/{booking}/live-session/pause', [LiveSessionController::class, 'pause']);
+    Route::post('/bookings/{booking}/live-session/resume', [LiveSessionController::class, 'resume']);
     Route::post('/bookings/{booking}/live-session/end', [LiveSessionController::class, 'end']);
     Route::post('/bookings/{booking}/live-session/signal', [LiveSessionController::class, 'signal']);
     Route::post('/bookings/{booking}/live-session/whiteboard', [LiveSessionController::class, 'whiteboard']);
     Route::post('/bookings/{booking}/session-note', [SessionNoteController::class, 'store']);
     Route::get('/bookings/{booking}/session-note', [SessionNoteController::class, 'show']);
-
-    // AI Chat (Groq - Free & Unlimited)
-    Route::post('/ai/chat', [AiChatController::class, 'chat']);
-    Route::post('/ai/chat-in-conversation/{conversationId}', [AiChatController::class, 'chatInConversation']);
 
     // Chat
     Route::get('/chat/conversations', [ChatController::class, 'index']);

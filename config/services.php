@@ -81,6 +81,9 @@ return [
 
     'webrtc' => [
         'stun_server' => env('WEBRTC_STUN_SERVER', 'stun:stun.l.google.com:19302'),
+        'turn_server' => env('WEBRTC_TURN_SERVER'),
+        'turn_username' => env('WEBRTC_TURN_USERNAME'),
+        'turn_password' => env('WEBRTC_TURN_PASSWORD'),
     ],
 
     /*
@@ -120,8 +123,8 @@ return [
     */
     'groq' => [
         'api_key' => env('GROQ_API_KEY'),
-        'model' => env('GROQ_MODEL', 'mixtral-8x7b-32768'),
-        'api_url' => 'https://api.groq.com/v1/chat/completions',
+        'model' => env('GROQ_MODEL', 'openai/gpt-oss-20b'),
+        'api_url' => 'https://api.groq.com/openai/v1/chat/completions',
     ],
 
 ];

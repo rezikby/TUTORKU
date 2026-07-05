@@ -12,8 +12,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('booking_id')->unique()->constrained()->cascadeOnDelete();
             $table->uuid('room_id')->unique();
-            $table->enum('status', ['scheduled', 'ongoing', 'ended'])->default('scheduled')->index();
+            $table->enum('status', ['scheduled', 'ongoing', 'paused', 'ended'])->default('scheduled')->index();
             $table->timestamp('started_at')->nullable();
+            $table->timestamp('paused_at')->nullable();
+            $table->unsignedInteger('total_paused_seconds')->default(0);
             $table->timestamp('ended_at')->nullable();
             $table->unsignedInteger('duration_seconds')->nullable();
             $table->json('whiteboard_snapshot')->nullable();

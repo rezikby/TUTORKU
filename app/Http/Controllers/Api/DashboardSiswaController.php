@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\LiveSession;
+use App\Models\StudyLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardSiswaController extends Controller
 {
@@ -13,13 +16,19 @@ class DashboardSiswaController extends Controller
     {
         $student = $request->user();
 
-        $totalSessions = Booking::where('student_id', $student->id)
-            ->where('status', 'completed')
-            ->count();
+        $studyLogCount = StudyLog::where('student_id', $student->id)->count();
+        $studyLogMinutes = StudyLog::where('student_id', $student->id)->sum('duration_minutes');
 
-        $totalMinutes = Booking::where('student_id', $student->id)
-            ->where('status', 'completed')
-            ->sum('duration_minutes');
+        $sessionQuery = LiveSession::whereHas('booking', function ($query) use ($student) {
+                $query->where('student_id', $student->id);
+            })
+            ->where('status', 'ended');
+
+        $endedSessionCount = $sessionQuery->count();
+        $endedSessionSeconds = $sessionQuery->sum('duration_seconds');
+
+        $totalSessions = $studyLogCount > 0 ? $studyLogCount : $endedSessionCount;
+        $totalMinutes = $studyLogCount > 0 ? $studyLogMinutes : (int) round($endedSessionSeconds / 60);
 
         $upcoming = Booking::where('student_id', $student->id)
             ->whereIn('status', ['confirmed', 'pending'])
@@ -37,20 +46,57 @@ class DashboardSiswaController extends Controller
             ->with('tutorProfile.user')
             ->first();
 
-        $weekly = collect(range(6, 0))->map(function ($daysAgo) use ($student) {
-            $date = Carbon::today()->subDays($daysAgo);
+        $month = $request->query('month', 'this');
+        $today = Carbon::today();
 
-            $minutes = Booking::where('student_id', $student->id)
-                ->where('status', 'completed')
-                ->whereDate('date', $date)
-                ->sum('duration_minutes');
+        if ($month === 'last') {
+            $start = $today->copy()->subMonthNoOverflow()->firstOfMonth();
+            $end = $start->copy()->endOfMonth();
+        } else {
+            $start = $today->copy()->firstOfMonth();
+            $end = $today->copy()->endOfMonth();
+        }
 
-            return [
-                'date' => $date->toDateString(),
-                'label' => $date->translatedFormat('D'),
-                'minutes' => (int) $minutes,
-            ];
-        });
+        $dailyStudyLogs = StudyLog::where('student_id', $student->id)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('date, SUM(duration_minutes) as minutes, COUNT(*) as completed_sessions')
+            ->groupBy('date')
+            ->get()
+            ->mapWithKeys(function ($row) {
+                $dateString = $row->date instanceof \Illuminate\Support\Carbon ? $row->date->toDateString() : (string) $row->date;
+                return [$dateString => $row];
+            });
+
+        $sessionsByDate = LiveSession::whereHas('booking', function ($query) use ($student) {
+                $query->where('student_id', $student->id);
+            })
+            ->where('status', 'ended')
+            ->whereBetween('ended_at', [$start->startOfDay(), $end->endOfDay()])
+            ->selectRaw('DATE(ended_at) as date, SUM(duration_seconds) as seconds, COUNT(*) as completed_sessions')
+            ->groupBy(DB::raw('DATE(ended_at)'))
+            ->get()
+            ->keyBy('date');
+
+        $monthly = collect();
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $dateKey = $date->toDateString();
+            $summary = $dailyStudyLogs->get($dateKey);
+            $minutes = $summary ? (int) $summary->minutes : 0;
+            $completedSessions = $summary ? (int) $summary->completed_sessions : 0;
+
+            if (!$summary && $sessionsByDate->has($dateKey)) {
+                $sessionSummary = $sessionsByDate->get($dateKey);
+                $minutes = (int) round($sessionSummary->seconds / 60);
+                $completedSessions = (int) $sessionSummary->completed_sessions;
+            }
+
+            $monthly->push([
+                'date' => $dateKey,
+                'label' => $date->format('d'),
+                'minutes' => $minutes,
+                'completed_sessions' => $completedSessions,
+            ]);
+        }
 
         $achievementsCount = 0;
 
@@ -71,7 +117,7 @@ class DashboardSiswaController extends Controller
                 'date' => $upcoming->date,
                 'start_time' => $upcoming->start_time,
             ] : null,
-            'weekly_study_minutes' => $weekly,
+            'monthly_study_minutes' => $monthly,
             'achievements_count' => $achievementsCount,
         ]);
     }

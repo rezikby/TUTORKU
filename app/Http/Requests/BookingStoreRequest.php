@@ -23,9 +23,8 @@ class BookingStoreRequest extends FormRequest
             'tutor_profile_id' => ['required', 'exists:tutor_profiles,id'],
             'subject_id' => ['nullable', 'exists:subjects,id'],
             'date' => ['required', 'date', 'after_or_equal:today'],
-            'start_time' => ['required', 'date_format:H:i'],
-            // Allow arbitrary duration in minutes (must be a positive integer).
-            'duration_minutes' => ['required', 'integer', 'min:1'],
+            'start_time' => ['required', 'date_format:H:i', 'regex:/^[0-2]\d:(00|10|20|30|40|50)$/'],
+            'duration_minutes' => ['required', 'integer', 'min:10', 'multiple_of:10'],
             'mode' => ['required', Rule::in(['online', 'offline'])],
 
             // Lokasi offline sekarang bisa menggunakan titik lokasi geolokasi saja.

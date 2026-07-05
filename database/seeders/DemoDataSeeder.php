@@ -76,8 +76,6 @@ class DemoDataSeeder extends Seeder
                     'verification_status' => 'verified',
                     'registration_step' => 5,
                     'registration_submitted' => true,
-                    'rating_avg' => 4.8,
-                    'rating_count' => 48,
                     'total_students' => 24,
                     'total_sessions' => 48,
                 ]

@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Notifications\NewChatMessageNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class ChatController extends Controller
@@ -26,8 +27,10 @@ class ChatController extends Controller
         $userId = $request->user()->id;
 
         $conversations = ChatConversation::query()
-            ->where('user_one_id', $userId)
-            ->orWhere('user_two_id', $userId)
+            ->where(function ($query) use ($userId) {
+                $query->where('user_one_id', $userId)->orWhere('user_two_id', $userId);
+            })
+            ->whereNull('booking_id')
             ->with(['userOne', 'userTwo', 'latestMessage'])
             ->withCount(['messages as unread_count' => function ($q) use ($userId) {
                 $q->whereNull('read_at')->where('sender_id', '!=', $userId);
@@ -55,8 +58,12 @@ class ChatController extends Controller
         [$one, $two] = $userId < $otherId ? [$userId, $otherId] : [$otherId, $userId];
 
         $conversation = ChatConversation::firstOrCreate(
-            ['user_one_id' => $one, 'user_two_id' => $two],
-            ['booking_id' => $validated['booking_id'] ?? null, 'last_message_at' => now()]
+            [
+                'user_one_id' => $one,
+                'user_two_id' => $two,
+                'booking_id' => $validated['booking_id'] ?? null,
+            ],
+            ['last_message_at' => now()]
         );
 
         return new ChatConversationResource($conversation->load(['userOne', 'userTwo']));
@@ -94,8 +101,8 @@ class ChatController extends Controller
         $this->authorizeConversation($request, $conversation);
 
         $validated = $request->validate([
-            'type' => ['required', Rule::in(['text', 'image', 'file', 'voice'])],
-            'content' => ['required_if:type,text', 'nullable', 'string', 'max:5000'],
+            'type' => ['required', Rule::in(['text', 'image', 'file', 'voice', 'link'])],
+            'content' => ['required_if:type,text,link', 'nullable', 'string', 'max:5000'],
             'file' => [
                 'required_if:type,image,file,voice', 'nullable', 'file', 'max:10240',
                 Rule::when($request->input('type') === 'image', ['mimes:jpg,jpeg,png,gif,webp']),
@@ -133,16 +140,16 @@ class ChatController extends Controller
         $message->load('sender');
 
         try {
-            broadcast(new ChatMessageSent($message))->toOthers();
+            broadcast(new ChatMessageSent($message));
         } catch (\Exception $e) {
-            \Log::debug('Message broadcast failed (ignored): ' . $e->getMessage());
+            Log::debug('Message broadcast failed (ignored): ' . $e->getMessage());
         }
 
         $receiver = $conversation->otherUser($request->user()->id);
         try {
             $receiver->notify(new NewChatMessageNotification($message));
         } catch (\Exception $e) {
-            \Log::debug('Notification failed (ignored): ' . $e->getMessage());
+            Log::debug('Notification failed (ignored): ' . $e->getMessage());
         }
 
         return new ChatMessageResource($message);
@@ -159,7 +166,7 @@ class ChatController extends Controller
         try {
             broadcast(new UserTyping($conversation->id, $request->user()->id, $validated['is_typing']))->toOthers();
         } catch (\Exception $e) {
-            \Log::debug('Typing broadcast failed (ignored): ' . $e->getMessage());
+            Log::debug('Typing broadcast failed (ignored): ' . $e->getMessage());
         }
 
         return response()->json(['message' => 'OK']);
@@ -195,9 +202,9 @@ class ChatController extends Controller
         $message->load('sender');
 
         try {
-            broadcast(new ChatMessageSent($message))->toOthers();
+            broadcast(new ChatMessageSent($message));
         } catch (\Exception $e) {
-            \Log::debug('Update message broadcast failed (ignored): ' . $e->getMessage());
+            Log::debug('Update message broadcast failed (ignored): ' . $e->getMessage());
         }
 
         return new ChatMessageResource($message);
@@ -235,9 +242,9 @@ class ChatController extends Controller
         $message->load('sender');
 
         try {
-            broadcast(new ChatMessageSent($message))->toOthers();
+            broadcast(new ChatMessageSent($message));
         } catch (\Exception $e) {
-            \Log::debug('Delete message broadcast failed (ignored): ' . $e->getMessage());
+            Log::debug('Delete message broadcast failed (ignored): ' . $e->getMessage());
         }
 
         return new ChatMessageResource($message);
