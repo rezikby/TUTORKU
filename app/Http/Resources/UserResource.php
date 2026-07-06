@@ -21,6 +21,8 @@ class UserResource extends JsonResource
             'address' => $this->address,
             'city' => $this->city,
             'status' => $this->status,
+            'suspended_until' => $this->suspended_until,
+            'suspension_message' => $this->when($this->status === 'suspended', fn () => $this->getSuspensionMessage()),
             'email_verified_at' => $this->email_verified_at,
             'settings' => new UserSettingResource($this->whenLoaded('settings')),
             'tutor_profile' => new TutorProfileResource($this->whenLoaded('tutorProfile')),

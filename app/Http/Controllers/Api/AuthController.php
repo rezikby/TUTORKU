@@ -28,7 +28,9 @@ class AuthController extends Controller
     public function googleRedirectUrl(Request $request)
     {
         try {
-            $url = Socialite::driver('google')
+            /** @var \Laravel\Socialite\Contracts\Provider|\Laravel\Socialite\Two\AbstractProvider $driver */
+            $driver = Socialite::driver('google');
+            $url = $driver
                 ->stateless()
                 ->redirectUrl(config('services.google.redirect'))
                 ->redirect()
@@ -50,7 +52,9 @@ class AuthController extends Controller
         ]);
 
         try {
-            $googleUser = Socialite::driver('google')
+            /** @var \Laravel\Socialite\Contracts\Provider|\Laravel\Socialite\Two\AbstractProvider $driver */
+            $driver = Socialite::driver('google');
+            $googleUser = $driver
                 ->stateless()
                 ->redirectUrl(config('services.google.redirect'))
                 ->user();
@@ -78,11 +82,19 @@ class AuthController extends Controller
                 'email' => $user->email
             ]);
 
+            $user->restoreSuspensionIfExpired();
+
             if ($user->status === 'suspended') {
                 Log::warning('Google Callback - User suspended', [
-                    'user_id' => $user->id
+                    'user_id' => $user->id,
                 ]);
-                return redirect()->away("{$frontendUrl}/#/login?error=suspended");
+
+                $query = ['error' => 'suspended'];
+                if ($user->suspended_until) {
+                    $query['until'] = $user->suspended_until->toIso8601String();
+                }
+
+                return redirect()->away("{$frontendUrl}/#/login?" . http_build_query($query));
             }
 
             // Jika user sudah memiliki email_verified_at, langsung login tanpa OTP
@@ -242,7 +254,10 @@ class AuthController extends Controller
                 Log::warning('Verify Google OTP - User suspended', [
                     'user_id' => $user->id
                 ]);
-                return response()->json(['message' => 'Akun kamu telah dinonaktifkan. Hubungi admin TUTORKU.'], 403);
+                return response()->json(array_merge(
+                    ['suspended' => true],
+                    $user->getSuspensionPayload(),
+                ), 403);
             }
 
             Cache::forget("google_pending:{$validated['pending_token']}");
@@ -273,14 +288,22 @@ class AuthController extends Controller
 
             $existingUser = User::where('phone', $phone)->first();
             if ($existingUser) {
-                $token = $existingUser->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
-
-                return response()->json([
-                    'message' => 'Login berhasil.',
-                    'user' => new UserResource($existingUser->load('settings', 'tutorProfile')),
-                    'token' => $token,
-                ], 200);
+            $existingUser->restoreSuspensionIfExpired();
+            if ($existingUser->status === 'suspended') {
+                return response()->json(array_merge(
+                    ['suspended' => true],
+                    $existingUser->getSuspensionPayload(),
+                ), 403);
             }
+
+            $token = $existingUser->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
+
+            return response()->json([
+                'message' => 'Login berhasil.',
+                'user' => new UserResource($existingUser->load('settings', 'tutorProfile')),
+                'token' => $token,
+            ], 200);
+        }
 
             // Create user but DO NOT mark phone as verified yet. Send OTP for verification.
             $user = User::create([
@@ -331,24 +354,26 @@ class AuthController extends Controller
             ]);
 
             $phone = $this->formatPhoneNumber($request->phone);
-            $user = User::where('phone', $phone)->first();
+        $user = User::where('phone', $phone)->first();
 
-            if (!$user) {
-                return response()->json([
-                    'message' => 'Nomor handphone tidak terdaftar. Silakan daftar terlebih dahulu.',
-                    'requires_otp' => true,
-                ], 404);
-            }
+        if (!$user) {
+            return response()->json([
+                'message' => 'Nomor handphone tidak terdaftar. Silakan daftar terlebih dahulu.',
+                'requires_otp' => true,
+            ], 404);
+        }
 
-            if ($user->status === 'suspended') {
-                return response()->json([
-                    'message' => 'Akun kamu telah dinonaktifkan. Hubungi admin TUTORKU.'
-                ], 403);
-            }
+        $user->restoreSuspensionIfExpired();
+        if ($user->status === 'suspended') {
+            return response()->json(array_merge(
+                ['suspended' => true],
+                $user->getSuspensionPayload(),
+            ), 403);
+        }
 
-            $user->forceFill([
-                'last_login_at' => now(),
-            ])->save();
+        $user->forceFill([
+            'last_login_at' => now(),
+        ])->save();
 
             $tokenName = $request->device_name ?: ('TUTORKU-' . $user->id . '-' . Str::random(6));
             $token = $user->createToken($tokenName, ['*'], now()->addDay());
@@ -442,6 +467,14 @@ class AuthController extends Controller
                     'user_id' => $user->id,
                 ]);
             } else {
+                $user->restoreSuspensionIfExpired();
+                if ($user->status === 'suspended') {
+                    return response()->json(array_merge(
+                        ['suspended' => true],
+                        $user->getSuspensionPayload(),
+                    ), 403);
+                }
+
                 $user->forceFill([
                     'phone_verified_at' => $user->phone_verified_at ?? now(),
                     'status' => 'active',
@@ -449,9 +482,10 @@ class AuthController extends Controller
             }
 
             if ($user->status === 'suspended') {
-                return response()->json([
-                    'message' => 'Akun kamu telah dinonaktifkan. Hubungi admin TUTORKU.',
-                ], 403);
+                return response()->json(array_merge(
+                    ['suspended' => true],
+                    $user->getSuspensionPayload(),
+                ), 403);
             }
 
             $tokenName = 'TUTORKU-' . $user->id . '-' . Str::random(6);

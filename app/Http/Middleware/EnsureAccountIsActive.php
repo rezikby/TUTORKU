@@ -19,10 +19,14 @@ class EnsureAccountIsActive
             ], 401);
         }
 
+        if ($user->restoreSuspensionIfExpired()) {
+            return $next($request);
+        }
+
         if (! empty($user->status) && $user->status !== 'active') {
             return response()->json([
                 'success' => false,
-                'message' => 'Akun Anda sedang tidak aktif.',
+                'message' => $user->getSuspensionMessage() ?: 'Akun Anda sedang tidak aktif.',
             ], 403);
         }
 

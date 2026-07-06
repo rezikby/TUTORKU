@@ -23,7 +23,7 @@ class DemoDataSeeder extends Seeder
 
     protected function createUser(string $name, string $email, string $role, array $extra = []): User
     {
-        $password = $extra['password'] ?? '230107Rezi';
+        $password = $extra['password'] ?? 'password';
         unset($extra['password']);
 
         $user = User::updateOrCreate(
@@ -45,17 +45,36 @@ class DemoDataSeeder extends Seeder
     protected function seedTutors(): void
     {
         $data = [
-            ['name' => 'Mita Yuliana', 'email' => 'rezicopilot1@gmail.com', 'subjects' => ['Matematika', 'Fisika'], 'city' => 'Jakarta Selatan'],
-            ['name' => 'Rezi', 'email' => 'rezicopilot2@gmail.com', 'subjects' => ['Bahasa Inggris'], 'city' => 'Bandung'],
-            ['name' => 'Andre Kusuma', 'email' => 'rezicopilot3@gmail.com', 'subjects' => ['Kimia', 'Biologi'], 'city' => 'Surabaya'],
-            ['name' => 'Nesa Ari', 'email' => 'rezicopilot4@gmail.com', 'subjects' => ['Matematika'], 'city' => 'Jakarta Pusat'],
-            ['name' => 'Nurdhidayah', 'email' => 'rezicopilot5@gmail.com', 'subjects' => ['Fisika', 'Matematika'], 'city' => 'Yogyakarta'],
-            ['name' => 'Alif Pramulia Nugraha', 'email' => 'rezicopilot6@gmail.com', 'subjects' => ['Bahasa Indonesia'], 'city' => 'Malang'],
-            ['name' => 'Dimas Saputra', 'email' => 'rezicopilot7@gmail.com', 'subjects' => ['Matematika', 'Bahasa Inggris'], 'city' => 'Bekasi'],
-            ['name' => 'Siti Rahma', 'email' => 'rezicopilot8@gmail.com', 'subjects' => ['Biologi', 'Kimia'], 'city' => 'Semarang'],
-            ['name' => 'Ahmad Fauzan', 'email' => 'rezicopilot9@gmail.com', 'subjects' => ['Fisika'], 'city' => 'Bandung'],
-            ['name' => 'Rina Oktavia', 'email' => 'rezicopilot10@gmail.com', 'subjects' => ['Bahasa Inggris', 'Bahasa Indonesia'], 'city' => 'Depok'],
-            ['name' => 'Yoga Pratama', 'email' => 'rezicopilot11@gmail.com', 'subjects' => ['Matematika', 'UTBK'], 'city' => 'Tangerang'],
+            ['name' => 'Mita Yuliana', 'email' => 'tutorku1@gmail.com', 'subjects' => ['Matematika', 'Fisika'], 'city' => 'Jakarta Selatan'],
+            ['name' => 'Rezi', 'email' => 'tutorku2@gmail.com', 'subjects' => ['Bahasa Inggris'], 'city' => 'Bandung'],
+            ['name' => 'Andre Kusuma', 'email' => 'tutorku3@gmail.com', 'subjects' => ['Kimia', 'Biologi'], 'city' => 'Surabaya'],
+            ['name' => 'Nesa Ari', 'email' => 'tutorku4@gmail.com', 'subjects' => ['Matematika'], 'city' => 'Jakarta Pusat'],
+            ['name' => 'Nurdhidayah', 'email' => 'tutorku5@gmail.com', 'subjects' => ['Fisika', 'Matematika'], 'city' => 'Yogyakarta'],
+            ['name' => 'Alif Pramulia Nugraha', 'email' => 'tutorku6@gmail.com', 'subjects' => ['Bahasa Indonesia'], 'city' => 'Malang'],
+            ['name' => 'Dimas Saputra', 'email' => 'tutorku7@gmail.com', 'subjects' => ['Matematika', 'Bahasa Inggris'], 'city' => 'Bekasi'],
+            ['name' => 'Siti Rahma', 'email' => 'tutorku8@gmail.com', 'subjects' => ['Biologi', 'Kimia'], 'city' => 'Semarang'],
+            ['name' => 'Ahmad Fauzan', 'email' => 'tutorku9@gmail.com', 'subjects' => ['Fisika'], 'city' => 'Bandung'],
+            ['name' => 'Rina Oktavia', 'email' => 'tutorku10@gmail.com', 'subjects' => ['Bahasa Inggris', 'Bahasa Indonesia'], 'city' => 'Depok'],
+            ['name' => 'Yoga Pratama', 'email' => 'tutorku11@gmail.com', 'subjects' => ['Matematika', 'UTBK'], 'city' => 'Tangerang'],
+            ['name' => 'Putri Anggraini', 'email' => 'tutorku12@gmail.com', 'subjects' => ['Bahasa Inggris'], 'city' => 'Jakarta Barat'],
+            ['name' => 'Bagus Setiawan', 'email' => 'tutorku13@gmail.com', 'subjects' => ['Fisika', 'UTBK'], 'city' => 'Surabaya'],
+            ['name' => 'Dewi Lestari', 'email' => 'tutorku14@gmail.com', 'subjects' => ['Biologi'], 'city' => 'Yogyakarta'],
+            ['name' => 'Fajar Nugroho', 'email' => 'tutorku15@gmail.com', 'subjects' => ['Kimia', 'Fisika'], 'city' => 'Medan'],
+            ['name' => 'Intan Permatasari', 'email' => 'tutorku16@gmail.com', 'subjects' => ['Matematika', 'Kimia'], 'city' => 'Bandung'],
+            ['name' => 'Joko Widianto', 'email' => 'tutorku17@gmail.com', 'subjects' => ['Bahasa Indonesia', 'UTBK'], 'city' => 'Semarang'],
+            ['name' => 'Kartika Sari', 'email' => 'tutorku18@gmail.com', 'subjects' => ['Bahasa Inggris', 'Bahasa Indonesia'], 'city' => 'Jakarta Timur'],
+            ['name' => 'Luthfi Hakim', 'email' => 'tutorku19@gmail.com', 'subjects' => ['Matematika', 'Fisika'], 'city' => 'Depok'],
+            ['name' => 'Melati Wulandari', 'email' => 'tutorku20@gmail.com', 'subjects' => ['Biologi', 'Kimia'], 'city' => 'Malang'],
+            ['name' => 'Nanda Prasetyo', 'email' => 'tutorku21@gmail.com', 'subjects' => ['UTBK', 'Matematika'], 'city' => 'Bekasi'],
+            ['name' => 'Olivia Rahayu', 'email' => 'tutorku22@gmail.com', 'subjects' => ['Bahasa Inggris'], 'city' => 'Tangerang'],
+            ['name' => 'Panji Anggoro', 'email' => 'tutorku23@gmail.com', 'subjects' => ['Fisika', 'Matematika'], 'city' => 'Jakarta Selatan'],
+            ['name' => 'Qonita Amalia', 'email' => 'tutorku24@gmail.com', 'subjects' => ['Kimia'], 'city' => 'Yogyakarta'],
+            ['name' => 'Rangga Saputra', 'email' => 'tutorku25@gmail.com', 'subjects' => ['Bahasa Indonesia'], 'city' => 'Surabaya'],
+            ['name' => 'Salsabila Putri', 'email' => 'tutorku26@gmail.com', 'subjects' => ['Biologi', 'UTBK'], 'city' => 'Bandung'],
+            ['name' => 'Taufik Hidayat', 'email' => 'tutorku27@gmail.com', 'subjects' => ['Matematika', 'Bahasa Inggris'], 'city' => 'Medan'],
+            ['name' => 'Uswatun Khasanah', 'email' => 'tutorku28@gmail.com', 'subjects' => ['Bahasa Indonesia', 'Bahasa Inggris'], 'city' => 'Semarang'],
+            ['name' => 'Vino Ardiansyah', 'email' => 'tutorku29@gmail.com', 'subjects' => ['Fisika', 'Kimia'], 'city' => 'Jakarta Pusat'],
+            ['name' => 'Widya Ningsih', 'email' => 'tutorku30@gmail.com', 'subjects' => ['Matematika', 'UTBK'], 'city' => 'Depok'],
         ];
 
         foreach ($data as $row) {

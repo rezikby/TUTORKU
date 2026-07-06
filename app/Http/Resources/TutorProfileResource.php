@@ -46,6 +46,8 @@ class TutorProfileResource extends JsonResource
             'mode_offline' => $this->mode_offline,
             'online' => $this->mode_online,
             'badge' => $this->badge,
+            'email' => $this->user->email,
+            'phone' => $this->when($canSeePrivateData, $this->user->phone),
             'verified' => $this->verification_status === 'verified',
             'verification_status' => $this->verification_status,
             'verification_note' => $this->when($canSeePrivateData, $this->verification_note),

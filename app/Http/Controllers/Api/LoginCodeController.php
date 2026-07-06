@@ -108,8 +108,12 @@ class LoginCodeController extends Controller
             return response()->json(['message' => 'Akun tidak ditemukan.'], 404);
         }
 
+        $user->restoreSuspensionIfExpired();
         if ($user->status === 'suspended') {
-            return response()->json(['message' => 'Akun kamu telah dinonaktifkan. Hubungi admin TUTORKU.'], 403);
+            return response()->json(array_merge(
+                ['suspended' => true],
+                $user->getSuspensionPayload(),
+            ), 403);
         }
 
         $token = $user->createToken('TUTORKU-'.$user->id)->plainTextToken;

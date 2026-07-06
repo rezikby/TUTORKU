@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
+use App\Models\User;
 
 /**
  * PASSWORD LOGIN — khusus Tutor dan Admin (sesuai permintaan: tidak perlu OTP).
@@ -43,6 +44,14 @@ class PasswordLoginController extends Controller
             return response()->json(['message' => 'Email atau password salah.'], 422);
         }
 
+        $user->restoreSuspensionIfExpired();
+        if ($user->status === 'suspended') {
+            return response()->json(array_merge(
+                ['suspended' => true],
+                $user->getSuspensionPayload(),
+            ), 403);
+        }
+
         if (! $user->isTutor()) {
             return response()->json([
                 'message' => 'Akun ini bukan akun tutor. Gunakan halaman login siswa.',
@@ -67,6 +76,14 @@ class PasswordLoginController extends Controller
             return response()->json(['message' => 'Email atau password salah.'], 422);
         }
 
+        $user->restoreSuspensionIfExpired();
+        if ($user->status === 'suspended') {
+            return response()->json(array_merge(
+                ['suspended' => true],
+                $user->getSuspensionPayload(),
+            ), 403);
+        }
+
         if (! $user->isAdmin()) {
             return response()->json(['message' => 'Akun ini bukan akun admin.'], 403);
         }
@@ -80,7 +97,9 @@ class PasswordLoginController extends Controller
      */
     public function tutorGoogleRedirectUrl(Request $request)
     {
-        $url = Socialite::driver('google')
+        /** @var \Laravel\Socialite\Contracts\Provider|\Laravel\Socialite\Two\AbstractProvider $driver */
+        $driver = Socialite::driver('google');
+        $url = $driver
             ->stateless()
             ->redirectUrl(config('services.google.tutor_redirect'))
             ->redirect()
@@ -96,7 +115,9 @@ class PasswordLoginController extends Controller
         $cacheBust = time();
 
         try {
-            $googleUser = Socialite::driver('google')
+            /** @var \Laravel\Socialite\Contracts\Provider|\Laravel\Socialite\Two\AbstractProvider $driver */
+            $driver = Socialite::driver('google');
+            $googleUser = $driver
                 ->stateless()
                 ->redirectUrl(config('services.google.tutor_redirect'))
                 ->user();
@@ -111,7 +132,11 @@ class PasswordLoginController extends Controller
         }
 
         if ($user->status === 'suspended') {
-            return redirect()->away("{$frontendUrl}/?v={$cacheBust}#/tutor-login?error=suspended");
+            $query = ['error' => 'suspended'];
+            if ($user->suspended_until) {
+                $query['until'] = $user->suspended_until->toIso8601String();
+            }
+            return redirect()->away("{$frontendUrl}/?v={$cacheBust}#/tutor-login?" . http_build_query($query));
         }
 
         $user->forceFill([
@@ -127,7 +152,7 @@ class PasswordLoginController extends Controller
         return redirect()->away("{$frontendUrl}/?v={$cacheBust}#/tutor-login/complete?token={$token->plainTextToken}");
     }
 
-    protected function issueSession($user, Request $request, string $method, bool $remember, ?string $deviceName)
+    protected function issueSession(User $user, Request $request, string $method, bool $remember, ?string $deviceName)
     {
         $user->forceFill(['last_login_at' => now()])->save();
 

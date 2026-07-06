@@ -5,11 +5,10 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Queue\SerializesModels;
 
-class SlotsUpdated implements ShouldBroadcastNow
+class SlotsUpdated implements ShouldBroadcast
 {
     use InteractsWithSockets, SerializesModels;
 

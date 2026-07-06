@@ -69,6 +69,7 @@ class TutorRegistrationController extends Controller
 
         $validated = $request->validate([
             'headline' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $request->user()->id],
             'bio' => ['required', 'string', 'max:2000'],
             'price_per_hour' => ['required', 'integer', 'min:10000'],
             'experience_years' => ['required', 'integer', 'min:0'],
@@ -85,7 +86,7 @@ class TutorRegistrationController extends Controller
         ]);
 
         $updates = [
-            ...collect($validated)->except(['subject_ids', 'profile_photo'])->all(),
+            ...collect($validated)->except(['subject_ids', 'profile_photo', 'email'])->all(),
             'registration_step' => max($profile->registration_step, 3),
         ];
 
@@ -94,6 +95,10 @@ class TutorRegistrationController extends Controller
         }
 
         $profile->update($updates);
+        
+        // Update User email untuk login tutor nantinya
+        $request->user()->update(['email' => $validated['email']]);
+        
         $profile->subjects()->sync($validated['subject_ids']);
 
         return new TutorProfileResource($profile->fresh(['subjects']));

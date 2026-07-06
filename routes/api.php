@@ -238,6 +238,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/tutors', [TutorVerificationController::class, 'index']);
         Route::get('/tutors/{tutorProfile}', [TutorVerificationController::class, 'show']);
+        Route::put('/tutors/{tutorProfile}', [TutorVerificationController::class, 'update']);
+        Route::delete('/tutors/{tutorProfile}', [TutorVerificationController::class, 'destroy']);
         Route::post('/tutors/{tutorProfile}/approve', [TutorVerificationController::class, 'approve']);
         Route::post('/tutors/{tutorProfile}/reject', [TutorVerificationController::class, 'reject']);
 
@@ -245,6 +247,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/users', [UserManagementController::class, 'store']);
         Route::get('/users/{user}', [UserManagementController::class, 'show']);
         Route::put('/users/{user}/status', [UserManagementController::class, 'updateStatus']);
+        Route::put('/users/{user}', [UserManagementController::class, 'update']);
+        Route::delete('/users/{user}', [UserManagementController::class, 'destroy']);
 
         Route::get('/reports', [AdminReportController::class, 'index']);
         Route::put('/reports/{report}/resolve', [AdminReportController::class, 'resolve']);

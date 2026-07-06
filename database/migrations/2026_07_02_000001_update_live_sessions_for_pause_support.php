@@ -9,23 +9,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Kolom paused_at dan total_paused_seconds sudah ada di create_live_session_tables
+        // Migration ini hanya untuk memastikan enum status include 'paused'
         DB::statement("ALTER TABLE `live_sessions` MODIFY `status` ENUM('scheduled','ongoing','paused','ended') NOT NULL DEFAULT 'scheduled'");
-
-        Schema::table('live_sessions', function (Blueprint $table) {
-            $table->timestamp('paused_at')->nullable()->after('ended_at');
-            $table->unsignedInteger('total_paused_seconds')->default(0)->after('paused_at');
-        });
     }
 
     public function down(): void
     {
-        Schema::table('live_sessions', function (Blueprint $table) {
-            $table->enum('status', ['scheduled', 'ongoing', 'ended'])
-                ->default('scheduled')
-                ->index()
-                ->change();
-            $table->dropColumn('paused_at');
-            $table->dropColumn('total_paused_seconds');
-        });
+        // Rollback hanya enum status saja, jangan hapus kolom karena dibutuhkan di create migration
+        DB::statement("ALTER TABLE `live_sessions` MODIFY `status` ENUM('scheduled','ongoing','ended') NOT NULL DEFAULT 'scheduled'");
     }
 };

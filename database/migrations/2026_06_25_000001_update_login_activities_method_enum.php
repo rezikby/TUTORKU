@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -15,6 +16,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('login_activities')
+            ->where('method', 'password')
+            ->update(['method' => 'google']);
+
         Schema::table('login_activities', function (Blueprint $table) {
             $table->enum('method', ['google', 'phone_otp'])->default('google')->change();
         });

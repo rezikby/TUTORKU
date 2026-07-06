@@ -7,6 +7,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -38,8 +39,23 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::table('users')
+            ->whereNull('password')
+            ->update(['password' => '']);
+
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['google_id', 'google_avatar', 'phone_verified_at', 'remember_login']);
+            if (Schema::hasColumn('users', 'google_id')) {
+                $table->dropColumn('google_id');
+            }
+            if (Schema::hasColumn('users', 'google_avatar')) {
+                $table->dropColumn('google_avatar');
+            }
+            if (Schema::hasColumn('users', 'phone_verified_at')) {
+                $table->dropColumn('phone_verified_at');
+            }
+            if (Schema::hasColumn('users', 'remember_login')) {
+                $table->dropColumn('remember_login');
+            }
             $table->string('password')->nullable(false)->change();
         });
     }

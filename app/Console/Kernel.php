@@ -32,6 +32,11 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->name('expire-pending-bookings')
             ->withoutOverlapping();
+
+        $schedule->command('users:restore-suspended')
+            ->everyMinute()
+            ->name('restore-suspended-users')
+            ->withoutOverlapping();
     }
 
     /**

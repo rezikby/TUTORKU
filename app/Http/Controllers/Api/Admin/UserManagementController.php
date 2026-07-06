@@ -12,6 +12,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Models\UserSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -23,6 +24,10 @@ class UserManagementController extends Controller
 
         if ($role = $request->input('role')) {
             $query->where('role', $role);
+        }
+
+        if ($roles = $request->input('roles')) {
+            $query->whereIn('role', explode(',', $roles));
         }
 
         if ($search = $request->string('q')->trim()->toString()) {
@@ -84,5 +89,53 @@ class UserManagementController extends Controller
         $user->update($validated);
 
         return new UserResource($user->fresh());
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'role' => ['required', Rule::in(['siswa', 'tutor', 'admin'])],
+            'status' => ['required', Rule::in(['active', 'suspended', 'pending'])],
+            'phone' => ['nullable', 'string', 'max:15'],
+        ]);
+
+        if ($user->role === 'admin' && $validated['status'] === 'suspended') {
+            return response()->json([
+                'message' => 'Akun admin tidak dapat disuspend lewat halaman ini.',
+            ], 422);
+        }
+
+        $user->update($validated);
+
+        return new UserResource($user->fresh());
+    }
+
+    public function destroy(User $user)
+    {
+        if ($user->role === 'admin') {
+            return response()->json([
+                'message' => 'Akun admin tidak dapat dihapus lewat halaman ini.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($user) {
+            // Hapus dulu pesan chat yang dikirim user ini.
+            // Ini mengurangi kemungkinan pelanggaran foreign key saat hapus percakapan.
+            DB::table('chat_messages')
+                ->where('sender_id', $user->id)
+                ->delete();
+
+            // Hapus percakapan chat yang terkait user ini.
+            DB::table('chat_conversations')
+                ->where('user_one_id', $user->id)
+                ->orWhere('user_two_id', $user->id)
+                ->delete();
+
+            $user->delete();
+        });
+
+        return response()->json(['message' => 'Pengguna berhasil dihapus.']);
     }
 }
