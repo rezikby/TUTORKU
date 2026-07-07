@@ -28,7 +28,7 @@ class DemoDataSeeder extends Seeder
 
         $user = User::updateOrCreate(
             ['email' => $email],
-            array_merge([
+            array_merge([ 
                 'name' => $name,
                 'password' => Hash::make($password),
                 'role' => $role,

@@ -97,10 +97,17 @@ class AuthController extends Controller
                 return redirect()->away("{$frontendUrl}/#/login?" . http_build_query($query));
             }
 
-            // Jika user sudah memiliki email_verified_at, langsung login tanpa OTP
-            if ($user->email_verified_at) {
-                Log::info('Google Callback - User sudah terverifikasi, login langsung', [
-                    'user_id' => $user->id
+            $shouldSkipOtp = ! empty($user->email_verified_at)
+                || ! empty($user->phone_verified_at)
+                || ! empty($user->phone);
+
+            // Jika akun sudah terdaftar dan punya verifikasi/nomor telepon, login langsung tanpa OTP
+            if ($shouldSkipOtp) {
+                Log::info('Google Callback - Akun sudah terdaftar, login langsung', [
+                    'user_id' => $user->id,
+                    'email_verified_at' => $user->email_verified_at ? true : false,
+                    'phone_verified_at' => $user->phone_verified_at ? true : false,
+                    'has_phone' => ! empty($user->phone),
                 ]);
 
                 $user->forceFill([
@@ -114,7 +121,7 @@ class AuthController extends Controller
                 return redirect()->away("{$frontendUrl}/#/login/callback?token={$token}&role={$user->role}");
             }
 
-            Log::info('Google Callback - User belum verifikasi email, kirim OTP');
+            Log::info('Google Callback - User belum verifikasi email/phone, kirim OTP');
         }
 
         $pendingToken = (string) Str::uuid();
@@ -288,22 +295,23 @@ class AuthController extends Controller
 
             $existingUser = User::where('phone', $phone)->first();
             if ($existingUser) {
-            $existingUser->restoreSuspensionIfExpired();
-            if ($existingUser->status === 'suspended') {
-                return response()->json(array_merge(
-                    ['suspended' => true],
-                    $existingUser->getSuspensionPayload(),
-                ), 403);
+                $existingUser->restoreSuspensionIfExpired();
+                if ($existingUser->status === 'suspended') {
+                    return response()->json(array_merge(
+                        ['suspended' => true],
+                        $existingUser->getSuspensionPayload(),
+                    ), 403);
+                }
+
+                $token = $existingUser->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
+
+                return response()->json([
+                    'message' => 'Login berhasil.',
+                    'user' => new UserResource($existingUser->load('settings', 'tutorProfile')),
+                    'token' => $token,
+                    'requires_verification' => false,
+                ], 200);
             }
-
-            $token = $existingUser->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
-
-            return response()->json([
-                'message' => 'Login berhasil.',
-                'user' => new UserResource($existingUser->load('settings', 'tutorProfile')),
-                'token' => $token,
-            ], 200);
-        }
 
             // Create user but DO NOT mark phone as verified yet. Send OTP for verification.
             $user = User::create([
