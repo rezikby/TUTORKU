@@ -187,7 +187,7 @@ class OtpService
 
             (new AnonymousNotifiable)
                 ->route('mail', $email)
-                ->notify(new OtpCodeNotification($code, $this->expiresMinutes));
+                ->notifyNow(new OtpCodeNotification($code, $this->expiresMinutes));
 
             Log::info('OtpService::sendEmail - OTP email berhasil dikirim', [
                 'email' => $email
