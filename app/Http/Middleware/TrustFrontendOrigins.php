@@ -15,10 +15,22 @@ class TrustFrontendOrigins
         if ($request->hasHeader('origin')) {
             $origin = $request->header('origin');
             if (in_array($origin, $allowedOrigins, true) || empty($allowedOrigins)) {
+                $headers = [
+                    'Access-Control-Allow-Origin' => $origin ?: '*',
+                    'Access-Control-Allow-Credentials' => 'true',
+                    'Access-Control-Allow-Methods' => 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers' => $request->header('Access-Control-Request-Headers', '*'),
+                    'Vary' => 'Origin',
+                ];
+
+                if ($request->getMethod() === 'OPTIONS') {
+                    return response()->json(['status' => 'OK'], 200, $headers);
+                }
+
                 $response = $next($request);
-                $response->headers->set('Access-Control-Allow-Origin', $origin ?: '*');
-                $response->headers->set('Access-Control-Allow-Credentials', 'true');
-                $response->headers->set('Vary', 'Origin');
+                foreach ($headers as $key => $value) {
+                    $response->headers->set($key, $value);
+                }
                 return $response;
             }
         }
