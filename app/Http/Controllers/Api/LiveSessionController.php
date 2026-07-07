@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\LiveSessionResource;
 use App\Models\Booking;
 use App\Models\LiveSession;
+use App\Models\LiveSessionParticipant;
 use App\Notifications\SessionStartedNotification;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -82,6 +83,15 @@ class LiveSessionController extends Controller
                 'message' => 'Sesi sudah berakhir.',
             ], 422);
         }
+
+        // Track participant (untuk polling)
+        LiveSessionParticipant::updateOrCreate(
+            ['live_session_id' => $session->id, 'user_id' => $user->id],
+            [
+                'is_audio_on' => true,
+                'is_video_on' => true,
+            ]
+        );
 
         // Return session + flag 'joined' = true sebagai konfirmasi eksplisit
         // agar frontend tidak perlu bergantung 100% pada WebSocket
@@ -305,6 +315,72 @@ class LiveSessionController extends Controller
             ->toOthers();
 
         return response()->json(['message' => 'OK']);
+    }
+
+    /** Get participants list (polling untuk shared hosting) */
+    public function participants(Request $request, Booking $booking)
+    {
+        $this->authorizeBooking($request, $booking);
+
+        $session = $booking->liveSession()->firstOrFail();
+
+        $participants = $session
+            ->participants()
+            ->with('user')
+            ->get()
+            ->map(fn (LiveSessionParticipant $p) => $p->toParticipantPresence())
+            ->values();
+
+        return response()->json([
+            'participants' => $participants,
+            'count' => $participants->count(),
+        ]);
+    }
+
+    /** Update participant state (audio/video/screen sharing) */
+    public function updateParticipantState(Request $request, Booking $booking)
+    {
+        $this->authorizeBooking($request, $booking);
+
+        $validated = $request->validate([
+            'is_audio_on' => ['boolean'],
+            'is_video_on' => ['boolean'],
+            'is_screen_sharing' => ['boolean'],
+            'is_speaking' => ['boolean'],
+        ]);
+
+        $session = $booking->liveSession()->firstOrFail();
+        $user = $request->user();
+
+        $participant = LiveSessionParticipant::where('live_session_id', $session->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$participant) {
+            return response()->json(['message' => 'Participant not found'], 404);
+        }
+
+        $participant->update($validated);
+
+        return response()->json([
+            'message' => 'State updated',
+            'participant' => $participant->toParticipantPresence(),
+        ]);
+    }
+
+    /** Leave session (remove from participants list) */
+    public function leave(Request $request, Booking $booking)
+    {
+        $this->authorizeBooking($request, $booking);
+
+        $session = $booking->liveSession()->firstOrFail();
+        $user = $request->user();
+
+        LiveSessionParticipant::where('live_session_id', $session->id)
+            ->where('user_id', $user->id)
+            ->delete();
+
+        return response()->json(['message' => 'Left session']);
     }
 
     protected function authorizeBooking(Request $request, Booking $booking): void

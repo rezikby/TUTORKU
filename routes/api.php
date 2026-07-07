@@ -155,6 +155,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/bookings/{booking}/live-session/end', [LiveSessionController::class, 'end']);
     Route::post('/bookings/{booking}/live-session/signal', [LiveSessionController::class, 'signal']);
     Route::post('/bookings/{booking}/live-session/whiteboard', [LiveSessionController::class, 'whiteboard']);
+    Route::get('/bookings/{booking}/live-session/participants', [LiveSessionController::class, 'participants']);
+    Route::patch('/bookings/{booking}/live-session/participants', [LiveSessionController::class, 'updateParticipantState']);
+    Route::post('/bookings/{booking}/live-session/leave', [LiveSessionController::class, 'leave']);
     Route::post('/bookings/{booking}/session-note', [SessionNoteController::class, 'store']);
     Route::get('/bookings/{booking}/session-note', [SessionNoteController::class, 'show']);
 

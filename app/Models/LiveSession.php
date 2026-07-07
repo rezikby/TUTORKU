@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class LiveSession extends Model
@@ -28,6 +29,11 @@ class LiveSession extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function participants(): HasMany
+    {
+        return $this->hasMany(LiveSessionParticipant::class);
     }
 
     public function note(): HasOne
