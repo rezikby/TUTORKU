@@ -45,7 +45,7 @@ class AuthController extends Controller
 
     public function googleCallback(Request $request)
     {
-        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+        $frontendUrl = config('app.frontend_url', 'https://rezi.nlabs.id');
 
         Log::info('Google Callback - Memulai proses', [
             'frontend_url' => $frontendUrl

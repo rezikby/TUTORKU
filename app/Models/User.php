@@ -35,6 +35,9 @@ class User extends Authenticatable
         'address',
         'city',
         'status',
+        'education_level',
+        'education_detail',
+        'onboarding_completed',
         'google_id',
         'google_avatar',
         'phone_verified_at',
@@ -58,6 +61,7 @@ class User extends Authenticatable
             'date_of_birth' => 'date',
             'password' => 'hashed',
             'remember_login' => 'boolean',
+            'onboarding_completed' => 'boolean',
         ];
     }
 

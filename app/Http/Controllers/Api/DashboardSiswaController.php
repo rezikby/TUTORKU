@@ -106,10 +106,17 @@ class DashboardSiswaController extends Controller
             'favorite_tutor' => $favoriteTutor?->tutorProfile?->user?->name ?? null,
             'upcoming_session' => $upcoming ? [
                 'booking_id' => $upcoming->id,
+                'mode' => $upcoming->mode,
+                'location_address' => $upcoming->location_address,
+                'location_city' => $upcoming->location_city,
+                'location_province' => $upcoming->location_province,
+                'location_latitude' => $upcoming->location_latitude,
+                'location_longitude' => $upcoming->location_longitude,
                 'tutor' => [
                     'name' => $upcoming->tutorProfile?->user?->name ?? 'Tutor',
                     'avatar' => $upcoming->tutorProfile?->user?->avatar_url ?? null,
                     'photo' => $upcoming->tutorProfile?->profile_photo_url ?? $upcoming->tutorProfile?->user?->avatar_url ?? null,
+                    'google_maps_url' => $upcoming->tutorProfile?->google_maps_url ?? null,
                 ],
                 'subject' => [
                     'name' => $upcoming->subject?->name ?? 'Mata Pelajaran',

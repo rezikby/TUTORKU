@@ -111,7 +111,7 @@ class PasswordLoginController extends Controller
     /** GET /api/auth/tutor/google/callback — selesai login Google untuk tutor, langsung tanpa OTP. */
     public function tutorGoogleCallback(Request $request)
     {
-        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+        $frontendUrl = config('app.frontend_url', 'https://rezi.nlabs.id');
         $cacheBust = time();
 
         try {

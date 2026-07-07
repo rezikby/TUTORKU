@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\LiveSessionStarted;
+use App\Events\ParticipantStateUpdated;
 use App\Events\SlotsUpdated;
 use App\Events\WebRtcSignal;
 use App\Events\WhiteboardUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LiveSessionResource;
 use App\Models\Booking;
+use App\Models\ChatConversation;
 use App\Models\LiveSession;
 use App\Models\LiveSessionParticipant;
 use App\Notifications\SessionStartedNotification;
@@ -322,7 +324,13 @@ class LiveSessionController extends Controller
     {
         $this->authorizeBooking($request, $booking);
 
-        $session = $booking->liveSession()->firstOrFail();
+        $session = $booking->liveSession()->first();
+        if (! $session) {
+            return response()->json([
+                'participants' => [],
+                'count' => 0,
+            ]);
+        }
 
         $participants = $session
             ->participants()
@@ -343,10 +351,16 @@ class LiveSessionController extends Controller
         $this->authorizeBooking($request, $booking);
 
         $validated = $request->validate([
-            'is_audio_on' => ['boolean'],
-            'is_video_on' => ['boolean'],
-            'is_screen_sharing' => ['boolean'],
-            'is_speaking' => ['boolean'],
+            'is_audio_on' => ['nullable', 'boolean'],
+            'is_video_on' => ['nullable', 'boolean'],
+            'is_screen_sharing' => ['nullable', 'boolean'],
+            'is_speaking' => ['nullable', 'boolean'],
+            'pretest_completed' => ['nullable', 'boolean'],
+            'pretest_score' => ['nullable', 'integer', 'min:0'],
+            'pretest_total_questions' => ['nullable', 'integer', 'min:0'],
+            'posttest_completed' => ['nullable', 'boolean'],
+            'posttest_score' => ['nullable', 'integer', 'min:0'],
+            'posttest_total_questions' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $session = $booking->liveSession()->firstOrFail();
@@ -357,10 +371,20 @@ class LiveSessionController extends Controller
             ->first();
 
         if (!$participant) {
-            return response()->json(['message' => 'Participant not found'], 404);
+            $participant = LiveSessionParticipant::create([
+                'live_session_id' => $session->id,
+                'user_id' => $user->id,
+                'is_audio_on' => true,
+                'is_video_on' => true,
+                'is_screen_sharing' => false,
+                'is_speaking' => false,
+            ]);
         }
 
         $participant->update($validated);
+
+        // Broadcast participant state update ke presence channel
+        broadcast(new ParticipantStateUpdated($session->room_id, $user->id, $participant->toParticipantPresence()));
 
         return response()->json([
             'message' => 'State updated',

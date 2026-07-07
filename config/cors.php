@@ -7,7 +7,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => array_values(array_unique([
-        env('FRONTEND_URL', 'http://localhost:5173'),
+        env('FRONTEND_URL', 'https://rezi.nlabs.id'),
         'https://rezi.nlabs.id',
         'http://rezi.nlabs.id',
         'https://rezi-laravel.nlabs.id',

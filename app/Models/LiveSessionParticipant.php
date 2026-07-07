@@ -19,6 +19,12 @@ class LiveSessionParticipant extends Model
         'is_video_on',
         'is_screen_sharing',
         'is_speaking',
+        'pretest_completed',
+        'pretest_score',
+        'pretest_total_questions',
+        'posttest_completed',
+        'posttest_score',
+        'posttest_total_questions',
     ];
 
     protected $casts = [
@@ -26,6 +32,12 @@ class LiveSessionParticipant extends Model
         'is_video_on' => 'boolean',
         'is_screen_sharing' => 'boolean',
         'is_speaking' => 'boolean',
+        'pretest_completed' => 'boolean',
+        'pretest_score' => 'integer',
+        'pretest_total_questions' => 'integer',
+        'posttest_completed' => 'boolean',
+        'posttest_score' => 'integer',
+        'posttest_total_questions' => 'integer',
     ];
 
     public function liveSession(): BelongsTo
@@ -49,6 +61,12 @@ class LiveSessionParticipant extends Model
             'isVideoOn' => $this->is_video_on,
             'isScreenSharing' => $this->is_screen_sharing,
             'isSpeaking' => $this->is_speaking,
+            'pretestCompleted' => (bool) $this->pretest_completed,
+            'pretestScore' => $this->pretest_score,
+            'pretestTotalQuestions' => $this->pretest_total_questions,
+            'posttestCompleted' => (bool) $this->posttest_completed,
+            'posttestScore' => $this->posttest_score,
+            'posttestTotalQuestions' => $this->posttest_total_questions,
         ];
     }
 }
