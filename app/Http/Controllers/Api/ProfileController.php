@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Http;
 
 class ProfileController extends Controller
 {
@@ -43,6 +44,8 @@ class ProfileController extends Controller
             'tutor_profile.subject_ids' => ['sometimes', 'array'],
             'tutor_profile.subject_ids.*' => ['integer', 'exists:subjects,id'],
             'tutor_profile.google_maps_url' => ['sometimes', 'nullable', 'url', 'max:500'],
+            'tutor_profile.latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
+            'tutor_profile.longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
         ]);
 
         if ($request->hasFile('avatar')) {
@@ -94,6 +97,34 @@ class ProfileController extends Controller
                 }
                 if (array_key_exists('google_maps_url', $profileData)) {
                     $profile->update(['google_maps_url' => $profileData['google_maps_url']]);
+                }
+                if (array_key_exists('latitude', $profileData) || array_key_exists('longitude', $profileData)) {
+                    $lat = array_key_exists('latitude', $profileData) ? $profileData['latitude'] : $profile->latitude;
+                    $lon = array_key_exists('longitude', $profileData) ? $profileData['longitude'] : $profile->longitude;
+                    $profile->update([ 'latitude' => $lat, 'longitude' => $lon ]);
+
+                    try {
+                        if ($lat !== null && $lon !== null) {
+                            $res = Http::withHeaders(['User-Agent' => 'Tutorku/1.0'])->get('https://nominatim.openstreetmap.org/reverse', [
+                                'format' => 'jsonv2',
+                                'lat' => $lat,
+                                'lon' => $lon,
+                                'addressdetails' => 1,
+                            ]);
+                            if ($res->successful()) {
+                                $json = $res->json();
+                                $addr = $json['address'] ?? null;
+                                if ($addr) {
+                                    $profile->update([
+                                        'city' => $addr['city'] ?? $addr['town'] ?? $addr['village'] ?? $addr['county'] ?? $profile->city,
+                                        'province' => $addr['state'] ?? $profile->province,
+                                    ]);
+                                }
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // ignore
+                    }
                 }
             }
         }

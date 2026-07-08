@@ -45,22 +45,22 @@ class DemoDataSeeder extends Seeder
     protected function seedTutors(): void
     {
         $data = [
-            ['name' => 'Mita Yuliana', 'email' => 'tutorku1@gmail.com', 'subjects' => ['Matematika', 'Fisika'], 'city' => 'Jakarta Selatan', 'level' => 'SD', 'mode' => 'both'],
-            ['name' => 'Rezi', 'email' => 'tutorku2@gmail.com', 'subjects' => ['Bahasa Inggris'], 'city' => 'Bandung', 'level' => 'SD', 'mode' => 'online'],
-            ['name' => 'Andre Kusuma', 'email' => 'tutorku3@gmail.com', 'subjects' => ['Kimia', 'Biologi'], 'city' => 'Surabaya', 'level' => 'SD', 'mode' => 'offline'],
-            ['name' => 'Nesa Ari', 'email' => 'tutorku4@gmail.com', 'subjects' => ['Matematika'], 'city' => 'Jakarta Pusat', 'level' => 'SMP/MTS', 'mode' => 'both'],
-            ['name' => 'Nurdhidayah', 'email' => 'tutorku5@gmail.com', 'subjects' => ['Fisika', 'Matematika'], 'city' => 'Yogyakarta', 'level' => 'SMP/MTS', 'mode' => 'offline'],
-            ['name' => 'Alif Pramulia Nugraha', 'email' => 'tutorku6@gmail.com', 'subjects' => ['Bahasa Indonesia'], 'city' => 'Malang', 'level' => 'SMP/MTS', 'mode' => 'online'],
-            ['name' => 'Dimas Saputra', 'email' => 'tutorku7@gmail.com', 'subjects' => ['Matematika', 'Bahasa Inggris'], 'city' => 'Bekasi', 'level' => 'SMA/SMK', 'mode' => 'both'],
-            ['name' => 'Siti Rahma', 'email' => 'tutorku8@gmail.com', 'subjects' => ['Biologi', 'Kimia'], 'city' => 'Semarang', 'level' => 'SMA/SMK', 'mode' => 'offline'],
-            ['name' => 'Ahmad Fauzan', 'email' => 'tutorku9@gmail.com', 'subjects' => ['Fisika'], 'city' => 'Bandung', 'level' => 'SMA/SMK', 'mode' => 'online'],
-            ['name' => 'Rina Oktavia', 'email' => 'tutorku10@gmail.com', 'subjects' => ['Bahasa Inggris', 'Bahasa Indonesia'], 'city' => 'Depok', 'level' => 'Universitas/Politeknik', 'mode' => 'both'],
-            ['name' => 'Yoga Pratama', 'email' => 'tutorku11@gmail.com', 'subjects' => ['Matematika', 'UTBK'], 'city' => 'Tangerang', 'level' => 'Universitas/Politeknik', 'mode' => 'offline'],
-            ['name' => 'Putri Anggraini', 'email' => 'tutorku12@gmail.com', 'subjects' => ['Bahasa Inggris'], 'city' => 'Jakarta Barat', 'level' => 'Universitas/Politeknik', 'mode' => 'online'],
+            ['name' => 'Mita Yuliana', 'email' => 'tutorku1@gmail.com', 'subjects' => [], 'level' => 'SD', 'mode' => 'both'],
+            ['name' => 'Rezi', 'email' => 'tutorku2@gmail.com', 'subjects' => [], 'level' => 'SD', 'mode' => 'online'],
+            ['name' => 'Andre Kusuma', 'email' => 'tutorku3@gmail.com', 'subjects' => [], 'level' => 'SD', 'mode' => 'offline'],
+            ['name' => 'Nesa Ari', 'email' => 'tutorku4@gmail.com', 'subjects' => [], 'level' => 'SMP/MTS', 'mode' => 'both'],
+            ['name' => 'Nurdhidayah', 'email' => 'tutorku5@gmail.com', 'subjects' => [], 'level' => 'SMP/MTS', 'mode' => 'offline'],
+            ['name' => 'Alif Pramulia Nugraha', 'email' => 'tutorku6@gmail.com', 'subjects' => [], 'level' => 'SMP/MTS', 'mode' => 'online'],
+            ['name' => 'Dimas Saputra', 'email' => 'tutorku7@gmail.com', 'subjects' => [], 'level' => 'SMA/SMK', 'mode' => 'both'],
+            ['name' => 'Siti Rahma', 'email' => 'tutorku8@gmail.com', 'subjects' => [], 'level' => 'SMA/SMK', 'mode' => 'offline'],
+            ['name' => 'Ahmad Fauzan', 'email' => 'tutorku9@gmail.com', 'subjects' => [], 'level' => 'SMA/SMK', 'mode' => 'online'],
+            ['name' => 'Rina Oktavia', 'email' => 'tutorku10@gmail.com', 'subjects' => [], 'level' => 'Universitas/Politeknik', 'mode' => 'both'],
+            ['name' => 'Yoga Pratama', 'email' => 'tutorku11@gmail.com', 'subjects' => [], 'level' => 'Universitas/Politeknik', 'mode' => 'offline'],
+            ['name' => 'Putri Anggraini', 'email' => 'tutorku12@gmail.com', 'subjects' => [], 'level' => 'Universitas/Politeknik', 'mode' => 'online'],
         ];
 
         foreach ($data as $row) {
-            $user = $this->createUser($row['name'], $row['email'], 'tutor', ['city' => $row['city']]);
+            $user = $this->createUser($row['name'], $row['email'], 'tutor');
 
             $modeOnline = $row['mode'] !== 'offline';
             $modeOffline = $row['mode'] !== 'online';
@@ -72,7 +72,6 @@ class DemoDataSeeder extends Seeder
                     'bio' => 'Tutor berpengalaman siap membantu kamu memahami materi dengan cara yang menyenangkan.',
                     'price_per_hour' => 75000,
                     'experience_years' => 3,
-                    'city' => $row['city'],
                     'levels' => [$row['level']],
                     'mode_online' => $modeOnline,
                     'mode_offline' => $modeOffline,
@@ -91,7 +90,7 @@ class DemoDataSeeder extends Seeder
             $profile->educations()->firstOrCreate([
                 'degree' => 'S1',
                 'institution' => 'Universitas Indonesia',
-                'major' => $row['subjects'][0],
+                'major' => $row['subjects'][0] ?? null,
             ], ['year_start' => 2015, 'year_end' => 2019]);
 
             $profile->availabilities()->firstOrCreate([

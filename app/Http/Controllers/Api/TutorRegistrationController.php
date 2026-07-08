@@ -12,6 +12,7 @@ use App\Http\Resources\TutorProfileResource;
 use App\Services\Auth\RecaptchaService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Stepper PENGAJUAN TUTOR (instruksi):
@@ -73,8 +74,8 @@ class TutorRegistrationController extends Controller
             'bio' => ['required', 'string', 'max:2000'],
             'price_per_hour' => ['required', 'integer', 'min:10000'],
             'experience_years' => ['required', 'integer', 'min:0'],
-            'province' => ['required', 'string', 'max:100'],
-            'city' => ['required', 'string', 'max:100'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'city' => ['nullable', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
             'levels' => ['required', 'array', 'min:1'],
             'levels.*' => [Rule::in(['SD', 'SMP', 'SMA', 'Mahasiswa'])],
@@ -91,7 +92,27 @@ class TutorRegistrationController extends Controller
         ];
 
         if ($request->hasFile('profile_photo')) {
-            $updates['profile_photo_path'] = $request->file('profile_photo')->store('tutor/profile-photos', 'public');
+            $path = $request->file('profile_photo')->store('tutor/profile-photos', 'public');
+            $updates['profile_photo_path'] = $path;
+
+            try {
+                $fullPath = storage_path('app/public/' . $path);
+                if (file_exists($fullPath)) {
+                    $gps = $this->getGpsFromImage($fullPath);
+                    if ($gps) {
+                        $updates['latitude'] = $gps['lat'];
+                        $updates['longitude'] = $gps['lon'];
+
+                        $addr = $this->reverseGeocode($gps['lat'], $gps['lon']);
+                        if ($addr) {
+                            $updates['city'] = $addr['city'] ?? $addr['town'] ?? $addr['village'] ?? $addr['county'] ?? null;
+                            $updates['province'] = $addr['state'] ?? $updates['province'] ?? null;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // ignore failures silently
+            }
         }
 
         $profile->update($updates);
@@ -230,5 +251,128 @@ class TutorRegistrationController extends Controller
         if ($profile->registration_submitted && $profile->verification_status !== 'rejected') {
             abort(422, 'Pengajuan kamu sedang ditinjau atau sudah disetujui, data tidak dapat diubah lagi.');
         }
+    }
+
+    private function getGpsFromImage(string $filePath): ?array
+    {
+        if (! function_exists('exif_read_data')) {
+            return null;
+        }
+
+        $exif = @exif_read_data($filePath);
+        if (! $exif) {
+            return null;
+        }
+
+        if (empty($exif['GPSLatitude']) || empty($exif['GPSLongitude'])) {
+            return null;
+        }
+
+        $lat = $this->gpsToDecimal($exif['GPSLatitude'], $exif['GPSLatitudeRef'] ?? 'N');
+        $lon = $this->gpsToDecimal($exif['GPSLongitude'], $exif['GPSLongitudeRef'] ?? 'E');
+
+        if ($lat === null || $lon === null) {
+            return null;
+        }
+
+        return ['lat' => $lat, 'lon' => $lon];
+    }
+
+    private function gpsToDecimal($coord, $ref)
+    {
+        try {
+            $parts = $coord;
+            $degrees = $this->evalRational($parts[0]);
+            $minutes = $this->evalRational($parts[1]);
+            $seconds = $this->evalRational($parts[2]);
+
+            $decimal = $degrees + ($minutes / 60) + ($seconds / 3600);
+            if (in_array(strtoupper($ref), ['S', 'W'])) {
+                $decimal *= -1;
+            }
+
+            return $decimal;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function evalRational($r)
+    {
+        if (is_numeric($r)) {
+            return (float) $r;
+        }
+        if (is_string($r) && strpos($r, '/')) {
+            [$n, $d] = explode('/', $r);
+            if ((float) $d === 0.0) {
+                return 0.0;
+            }
+            return (float) $n / (float) $d;
+        }
+        if (is_array($r) && isset($r['0']) && isset($r['1'])) {
+            return $this->evalRational($r[0]);
+        }
+
+        return 0.0;
+    }
+
+    private function reverseGeocode(float $lat, float $lon): ?array
+    {
+        try {
+            $res = Http::withHeaders(['User-Agent' => 'Tutorku/1.0'])->get('https://nominatim.openstreetmap.org/reverse', [
+                'format' => 'jsonv2',
+                'lat' => $lat,
+                'lon' => $lon,
+                'addressdetails' => 1,
+            ]);
+
+            if (! $res->successful()) {
+                return null;
+            }
+
+            $json = $res->json();
+            return $json['address'] ?? null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Upload profile photo only — used by frontend to extract GPS and prefill city/province.
+     */
+    public function uploadPhoto(Request $request)
+    {
+        $profile = $request->user()->tutorProfile()->firstOrFail();
+
+        $validated = $request->validate([
+            'profile_photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:4096'],
+        ]);
+
+        $path = $request->file('profile_photo')->store('tutor/profile-photos', 'public');
+
+        $updates = ['profile_photo_path' => $path];
+
+        try {
+            $fullPath = storage_path('app/public/' . $path);
+            if (file_exists($fullPath)) {
+                $gps = $this->getGpsFromImage($fullPath);
+                if ($gps) {
+                    $updates['latitude'] = $gps['lat'];
+                    $updates['longitude'] = $gps['lon'];
+
+                    $addr = $this->reverseGeocode($gps['lat'], $gps['lon']);
+                    if ($addr) {
+                        $updates['city'] = $addr['city'] ?? $addr['town'] ?? $addr['village'] ?? $addr['county'] ?? null;
+                        $updates['province'] = $addr['state'] ?? null;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // ignore
+        }
+
+        $profile->update($updates);
+
+        return new TutorProfileResource($profile->fresh(['subjects', 'educations', 'experiences', 'certificates']));
     }
 }

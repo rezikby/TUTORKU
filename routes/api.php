@@ -213,6 +213,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/registration/step-2', [TutorRegistrationController::class, 'step2']);
         Route::put('/registration/step-3', [TutorRegistrationController::class, 'step3']);
         Route::post('/registration/step-4', [TutorRegistrationController::class, 'step4']);
+        Route::post('/registration/photo', [TutorRegistrationController::class, 'uploadPhoto']);
         Route::post('/registration/submit', [TutorRegistrationController::class, 'submit']);
     });
 

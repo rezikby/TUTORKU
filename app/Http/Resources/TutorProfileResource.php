@@ -39,6 +39,7 @@ class TutorProfileResource extends JsonResource
             'location' => trim(collect([$this->city, $this->province])->filter()->join(', ')),
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
+            'distance' => $this->when(! is_null($this->distance), fn () => (float) $this->distance),
             'google_maps_url' => $this->google_maps_url,
             'levels' => $this->levels,
             'level_label' => $this->levels ? implode(' / ', $this->levels) : null,

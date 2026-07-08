@@ -75,12 +75,26 @@ class TutorController extends Controller
             }
         }
 
-        // Sorting
+        // Optional: compute distance when user coordinates provided (lat, lon)
         $sort = $request->input('sort', 'rating');
+        if ($request->filled('lat') && $request->filled('lon')) {
+            $lat = (float) $request->input('lat');
+            $lon = (float) $request->input('lon');
+
+            // Haversine formula (distance in kilometers)
+            $haversine = "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))";
+
+            // Select all columns + computed distance
+            $query->selectRaw("*, {$haversine} as distance", [$lat, $lon, $lat]);
+        }
+
+        // Sorting
         match ($sort) {
             'price_asc' => $query->orderBy('price_per_hour', 'asc'),
             'price_desc' => $query->orderBy('price_per_hour', 'desc'),
             'experience' => $query->orderBy('experience_years', 'desc'),
+            'jarak_terdekat' => $query->orderBy('distance', 'asc'),
+            'jarak_terjauh' => $query->orderBy('distance', 'desc'),
             default => $query->orderByDesc('rating_avg'),
         };
 
