@@ -13,10 +13,18 @@ class ForumPostController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ForumPost::query()->with(['user', 'category']);
+        $query = ForumPost::query()->with(['user', 'category', 'subject']);
 
         if ($categoryId = $request->input('category_id')) {
             $query->where('forum_category_id', $categoryId);
+        }
+
+        if ($subjectId = $request->input('subject_id')) {
+            $query->where('subject_id', $subjectId);
+        }
+
+        if ($educationLevel = $request->input('education_level')) {
+            $query->where('education_level', $educationLevel);
         }
 
         if ($search = $request->string('q')->trim()->toString()) {
@@ -48,13 +56,17 @@ class ForumPostController extends Controller
     {
         $validated = $request->validate([
             'forum_category_id' => ['required', 'exists:forum_categories,id'],
+            'subject_id' => ['nullable', 'exists:subjects,id'],
+            'education_level' => ['nullable', 'string', 'max:50'],
             'title' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:5000'],
         ]);
 
         $post = $request->user()->forumPosts()->create($validated);
 
-        return new ForumPostResource($post->load(['user', 'category']));
+        return (new ForumPostResource($post->load(['user', 'category', 'subject'])))
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function show(Request $request, ForumPost $forumPost)
@@ -62,7 +74,7 @@ class ForumPostController extends Controller
         $forumPost->increment('views_count');
 
         $forumPost->load([
-            'user', 'category',
+            'user', 'category', 'subject',
             'comments' => fn ($q) => $q->whereNull('parent_id')->with(['user', 'replies.user'])->oldest(),
         ]);
 
@@ -118,13 +130,15 @@ class ForumPostController extends Controller
         abort_unless($forumPost->created_at->greaterThanOrEqualTo(now()->subMinutes(5)), 403);
 
         $validated = $request->validate([
+            'subject_id' => ['nullable', 'exists:subjects,id'],
+            'education_level' => ['nullable', 'string', 'max:50'],
             'title' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:5000'],
         ]);
 
         $forumPost->update($validated);
 
-        return new ForumPostResource($forumPost->fresh()->load(['user', 'category']));
+        return new ForumPostResource($forumPost->fresh()->load(['user', 'category', 'subject']));
     }
 
     public function destroy(Request $request, ForumPost $forumPost)

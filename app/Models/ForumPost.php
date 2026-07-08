@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Subject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,7 +13,7 @@ class ForumPost extends Model
     protected $table = 'forum_posts';
 
     protected $fillable = [
-        'user_id', 'forum_category_id', 'title', 'body',
+        'user_id', 'forum_category_id', 'subject_id', 'education_level', 'title', 'body',
         'likes_count', 'comments_count', 'views_count', 'solved',
     ];
 
@@ -29,6 +30,11 @@ class ForumPost extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(ForumCategory::class, 'forum_category_id');
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
     }
 
     public function comments(): HasMany

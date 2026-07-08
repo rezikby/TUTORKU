@@ -10,7 +10,14 @@ class ForumSeeder extends Seeder
 {
     public function run(): void
     {
-        $categories = ['Matematika', 'IPA', 'IPS', 'Bahasa Inggris', 'UTBK', 'SBMPTN'];
+        $categories = [
+            'SD',
+            'SMP/MTS',
+            'SMA/SMK',
+            'Universitas/Politeknik',
+            'UTBK',
+            'SBMPTN',
+        ];
 
         foreach ($categories as $name) {
             ForumCategory::firstOrCreate(['slug' => Str::slug($name)], ['name' => $name]);

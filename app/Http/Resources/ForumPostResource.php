@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\SubjectResource;
 
 class ForumPostResource extends JsonResource
 {
@@ -13,6 +14,8 @@ class ForumPostResource extends JsonResource
             'id' => $this->id,
             'user' => new UserResource($this->whenLoaded('user')),
             'category' => $this->whenLoaded('category', fn () => $this->category->name),
+            'subject' => $this->whenLoaded('subject', fn () => new SubjectResource($this->subject)),
+            'education_level' => $this->education_level,
             'title' => $this->title,
             'body' => $this->body,
             'likes' => $this->likes_count,
