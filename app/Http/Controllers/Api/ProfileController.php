@@ -96,7 +96,17 @@ class ProfileController extends Controller
                     $profile->subjects()->sync($profileData['subject_ids'] ?? []);
                 }
                 if (array_key_exists('google_maps_url', $profileData)) {
-                    $profile->update(['google_maps_url' => $profileData['google_maps_url']]);
+                    $url = $profileData['google_maps_url'];
+                    $profile->update(['google_maps_url' => $url]);
+                    
+                    // Auto-extract coordinates from Google Maps URL
+                    $coords = $this->extractCoordsFromGoogleMapsUrl($url);
+                    if ($coords) {
+                        $profile->update([
+                            'latitude' => $coords['lat'],
+                            'longitude' => $coords['lng'],
+                        ]);
+                    }
                 }
                 if (array_key_exists('latitude', $profileData) || array_key_exists('longitude', $profileData)) {
                     $lat = array_key_exists('latitude', $profileData) ? $profileData['latitude'] : $profile->latitude;
@@ -162,5 +172,62 @@ class ProfileController extends Controller
         $user->update(['password' => Hash::make($validated['password'])]);
 
         return response()->json(['message' => 'Password berhasil diperbarui.']);
+    }
+
+    /**
+     * Extract latitude and longitude from Google Maps URL
+     * Supports formats like:
+     * - https://maps.google.com/?q=37.7749,-122.4194
+     * - https://www.google.com/maps/search/?api=1&query=37.7749,-122.4194
+     * - https://www.google.com/maps/place/@-1.85172,106.13191,...
+     */
+    private function extractCoordsFromGoogleMapsUrl(?string $url): ?array
+    {
+        if (!$url) {
+            return null;
+        }
+
+        try {
+            // Try to extract from @lat,lng pattern (like in place URLs)
+            if (preg_match('/@(-?\d+\.\d+),(-?\d+\.\d+)/', $url, $matches)) {
+                return [
+                    'lat' => (float) $matches[1],
+                    'lng' => (float) $matches[2],
+                ];
+            }
+
+            // Try to extract from !3d lat !4d lng pattern (alternative format)
+            if (preg_match('/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/', $url, $matches)) {
+                return [
+                    'lat' => (float) $matches[1],
+                    'lng' => (float) $matches[2],
+                ];
+            }
+
+            // Try to extract from query parameter or comma-separated format
+            if (preg_match('/query=(-?\d+\.\d+),(-?\d+\.\d+)/', $url, $matches)) {
+                return [
+                    'lat' => (float) $matches[1],
+                    'lng' => (float) $matches[2],
+                ];
+            }
+
+            // Try to extract from q parameter
+            if (preg_match('/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/', $url, $matches)) {
+                return [
+                    'lat' => (float) $matches[1],
+                    'lng' => (float) $matches[2],
+                ];
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            Log::warning('Failed to extract coords from Google Maps URL', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 }
