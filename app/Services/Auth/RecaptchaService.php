@@ -33,6 +33,12 @@ class RecaptchaService
         }
 
         try {
+            Log::info('[reCAPTCHA] mengirim verifikasi token ke Google', [
+                'token_length' => strlen($token),
+                'token_preview' => substr($token, 0, 20) . '...',
+                'ip' => $ip,
+            ]);
+
             $response = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
                 'secret' => $secret,
                 'response' => $token,
@@ -45,21 +51,27 @@ class RecaptchaService
             
             if (!$success) {
                 Log::warning('[reCAPTCHA] verifikasi gagal', [
+                    'response_code' => $response->status(),
                     'response_data' => $data,
                     'score' => $data['score'] ?? null,
                     'action' => $data['action'] ?? null,
                     'error_codes' => $data['error-codes'] ?? [],
+                    'challenge_ts' => $data['challenge_ts'] ?? null,
                 ]);
             } else {
                 Log::info('[reCAPTCHA] verifikasi berhasil', [
                     'score' => $data['score'] ?? null,
                     'action' => $data['action'] ?? null,
+                    'challenge_ts' => $data['challenge_ts'] ?? null,
                 ]);
             }
 
             return $success;
         } catch (\Throwable $e) {
-            Log::error('reCAPTCHA verification error: '.$e->getMessage());
+            Log::error('[reCAPTCHA] verification error', [
+                'message' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ]);
 
             return false;
         }
