@@ -7,6 +7,8 @@ use App\Http\Resources\TutorProfileResource;
 use App\Models\TutorProfile;
 use App\Notifications\TutorAccountCreatedNotification;
 use App\Notifications\TutorVerificationNotification;
+use App\Notifications\Channels\WhatsAppChannel;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -56,8 +58,8 @@ class TutorVerificationController extends Controller
             'password' => Hash::make($plainPassword),
         ]);
 
-        $tutorProfile->user->notify(new TutorVerificationNotification($tutorProfile));
-        $tutorProfile->user->notify(new TutorAccountCreatedNotification($plainPassword));
+        Notification::sendNow($tutorProfile->user, new TutorVerificationNotification($tutorProfile), ['database', 'mail', WhatsAppChannel::class]);
+        Notification::sendNow($tutorProfile->user, new TutorAccountCreatedNotification($plainPassword), ['mail']);
 
         return new TutorProfileResource($tutorProfile->fresh(['user']));
     }
@@ -164,7 +166,7 @@ class TutorVerificationController extends Controller
             'verification_note' => $validated['note'],
         ]);
 
-        $tutorProfile->user->notify(new TutorVerificationNotification($tutorProfile));
+        Notification::sendNow($tutorProfile->user, new TutorVerificationNotification($tutorProfile), ['database', 'mail', WhatsAppChannel::class]);
 
         return new TutorProfileResource($tutorProfile->fresh());
     }
