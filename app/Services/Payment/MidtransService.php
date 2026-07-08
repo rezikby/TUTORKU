@@ -41,46 +41,67 @@ class MidtransService implements PaymentGatewayInterface
         // Catatan: Midtrans Snap API deprecated 'enabled_payments' parameter.
         // User harus pilih payment method LANGSUNG DI MIDTRANS UI (lebih fleksibel & reliable).
         // Backend hanya save method selection untuk reference/analytics, tidak kirim ke Midtrans.
-        $response = Http::withBasicAuth($this->serverKey, '')
-            ->acceptJson()
-            ->post($this->snapUrl(), [
-                'transaction_details' => [
-                    'order_id' => $payment->invoice_number,
-                    'gross_amount' => $payment->amount,
-                ],
-                'customer_details' => [
-                    'first_name' => $booking?->student?->name,
-                    'email' => $booking?->student?->email,
-                    'phone' => $booking?->student?->phone,
-                ],
-                // Redirect user back to homepage after checkout. Include booking/payment ids
-                // so frontend can optionally show a message or fetch booking status.
-                'callbacks' => [
-                    'finish' => config('app.frontend_url')."/?booking_id={$booking?->id}&payment_id={$payment->id}",
-                ],
+        try {
+            $response = Http::withBasicAuth($this->serverKey, '')
+                ->timeout(30) // Explicit 30-second timeout (increased from default)
+                ->acceptJson()
+                ->post($this->snapUrl(), [
+                    'transaction_details' => [
+                        'order_id' => $payment->invoice_number,
+                        'gross_amount' => $payment->amount,
+                    ],
+                    'customer_details' => [
+                        'first_name' => $booking?->student?->name,
+                        'email' => $booking?->student?->email,
+                        'phone' => $booking?->student?->phone,
+                    ],
+                    // Redirect user back to homepage after checkout. Include booking/payment ids
+                    // so frontend can optionally show a message or fetch booking status.
+                    'callbacks' => [
+                        'finish' => config('app.frontend_url')."/?booking_id={$booking?->id}&payment_id={$payment->id}",
+                    ],
+                ]);
+
+            $data = $response->json() ?? [];
+
+            if ($response->failed()) {
+                Log::warning('Midtrans transaction creation failed', [
+                    'status' => $response->status(),
+                    'data' => $data,
+                    'payment_id' => $payment->id,
+                ]);
+
+                throw new \RuntimeException(
+                    $data['error_messages'][0] ?? 'Gagal membuat transaksi pembayaran. Silakan coba lagi.'
+                );
+            }
+
+            // Validasi: redirect_url harus ada di response yang success
+            if (empty($data['redirect_url'])) {
+                Log::warning('Midtrans response missing redirect_url', ['response' => $data, 'payment_id' => $payment->id]);
+                throw new \RuntimeException('Payment URL tidak ditemukan. Silakan hubungi support.');
+            }
+
+            return [
+                'payment_url' => $data['redirect_url'],
+                'reference' => $data['token'] ?? $payment->invoice_number,
+                'raw' => $data,
+            ];
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('Midtrans API connection failed (timeout or network error)', [
+                'error' => $e->getMessage(),
+                'payment_id' => $payment->id,
+                'url' => $this->snapUrl(),
             ]);
-
-        $data = $response->json() ?? [];
-
-        if ($response->failed()) {
-            Log::warning('Midtrans transaction creation failed', $data);
-
-            throw new \RuntimeException(
-                $data['error_messages'][0] ?? 'Gagal membuat transaksi pembayaran. Silakan coba lagi.'
-            );
+            throw new \RuntimeException('Koneksi ke server pembayaran gagal. Silakan coba lagi dalam beberapa saat.');
+        } catch (\Exception $e) {
+            Log::error('Unexpected error creating Midtrans transaction', [
+                'error' => $e->getMessage(),
+                'payment_id' => $payment->id,
+                'exception' => get_class($e),
+            ]);
+            throw $e;
         }
-
-        // Validasi: redirect_url harus ada di response yang success
-        if (empty($data['redirect_url'])) {
-            Log::warning('Midtrans response missing redirect_url', ['response' => $data]);
-            throw new \RuntimeException('Payment URL tidak ditemukan. Silakan hubungi support.');
-        }
-
-        return [
-            'payment_url' => $data['redirect_url'],
-            'reference' => $data['token'] ?? $payment->invoice_number,
-            'raw' => $data,
-        ];
     }
 
     public function handleCallback(array $payload): array
