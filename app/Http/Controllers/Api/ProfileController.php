@@ -102,15 +102,34 @@ class ProfileController extends Controller
                     // Auto-extract coordinates from Google Maps URL
                     $coords = $this->extractCoordsFromGoogleMapsUrl($url);
                     if ($coords) {
-                        $profile->update([
-                            'latitude' => $coords['lat'],
-                            'longitude' => $coords['lng'],
-                        ]);
+                        // Reject (0,0) placeholder
+                        if (!($coords['lat'] == 0 && $coords['lng'] == 0)) {
+                            $profile->update([
+                                'latitude' => $coords['lat'],
+                                'longitude' => $coords['lng'],
+                            ]);
+                        } else {
+                            Log::warning('ProfileController: Google Maps URL contains placeholder (0,0)', [
+                                'profile_id' => $profile->id,
+                                'url' => $url,
+                            ]);
+                        }
                     }
                 }
                 if (array_key_exists('latitude', $profileData) || array_key_exists('longitude', $profileData)) {
                     $lat = array_key_exists('latitude', $profileData) ? $profileData['latitude'] : $profile->latitude;
                     $lon = array_key_exists('longitude', $profileData) ? $profileData['longitude'] : $profile->longitude;
+                    
+                    // Reject (0,0) placeholder for offline mode tutors
+                    if ($profile->mode_offline && $lat == 0 && $lon == 0) {
+                        return response()->json([
+                            'message' => 'Tutor dengan mode offline tidak boleh memiliki koordinat (0,0)',
+                            'errors' => [
+                                'coordinates' => ['Silakan set koordinat yang valid']
+                            ]
+                        ], 422);
+                    }
+                    
                     $profile->update([ 'latitude' => $lat, 'longitude' => $lon ]);
 
                     try {
