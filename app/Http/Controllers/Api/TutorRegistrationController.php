@@ -74,6 +74,7 @@ class TutorRegistrationController extends Controller
             'bio' => ['required', 'string', 'max:2000'],
             'price_per_hour' => ['required', 'integer', 'min:10000'],
             'experience_years' => ['required', 'integer', 'min:0'],
+            'google_maps_url' => ['sometimes', 'nullable', 'url', 'max:500'],
             'province' => ['nullable', 'string', 'max:100'],
             'city' => ['nullable', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
