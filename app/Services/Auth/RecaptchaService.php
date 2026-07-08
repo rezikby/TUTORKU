@@ -28,6 +28,7 @@ class RecaptchaService
         }
 
         if (! $token) {
+            Log::warning('[reCAPTCHA] token kosong atau null');
             return false;
         }
 
@@ -39,8 +40,24 @@ class RecaptchaService
             ]);
 
             $data = $response->json() ?? [];
+            
+            $success = (bool) ($data['success'] ?? false);
+            
+            if (!$success) {
+                Log::warning('[reCAPTCHA] verifikasi gagal', [
+                    'response_data' => $data,
+                    'score' => $data['score'] ?? null,
+                    'action' => $data['action'] ?? null,
+                    'error_codes' => $data['error-codes'] ?? [],
+                ]);
+            } else {
+                Log::info('[reCAPTCHA] verifikasi berhasil', [
+                    'score' => $data['score'] ?? null,
+                    'action' => $data['action'] ?? null,
+                ]);
+            }
 
-            return (bool) ($data['success'] ?? false);
+            return $success;
         } catch (\Throwable $e) {
             Log::error('reCAPTCHA verification error: '.$e->getMessage());
 
