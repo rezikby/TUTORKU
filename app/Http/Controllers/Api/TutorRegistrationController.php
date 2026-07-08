@@ -93,12 +93,25 @@ class TutorRegistrationController extends Controller
             'registration_step' => max($profile->registration_step, 3),
         ];
 
+        $coordinatesSource = null;
+
         // Auto-extract coordinates from Google Maps URL if provided
         if (!empty($validated['google_maps_url'])) {
             $coords = $this->extractCoordsFromGoogleMapsUrl($validated['google_maps_url']);
             if ($coords) {
                 $updates['latitude'] = $coords['lat'];
                 $updates['longitude'] = $coords['lng'];
+                $coordinatesSource = 'google_maps_url';
+                Log::info('Step2: Coordinates extracted from Google Maps URL', [
+                    'tutor_id' => $profile->id,
+                    'latitude' => $coords['lat'],
+                    'longitude' => $coords['lng'],
+                ]);
+            } else {
+                Log::warning('Step2: Failed to extract coordinates from Google Maps URL', [
+                    'tutor_id' => $profile->id,
+                    'url' => $validated['google_maps_url'],
+                ]);
             }
         }
 
@@ -113,17 +126,40 @@ class TutorRegistrationController extends Controller
                     if ($gps) {
                         $updates['latitude'] = $gps['lat'];
                         $updates['longitude'] = $gps['lon'];
+                        $coordinatesSource = 'exif';
+                        Log::info('Step2: Coordinates extracted from EXIF', [
+                            'tutor_id' => $profile->id,
+                            'latitude' => $gps['lat'],
+                            'longitude' => $gps['lon'],
+                        ]);
 
                         $addr = $this->reverseGeocode($gps['lat'], $gps['lon']);
                         if ($addr) {
                             $updates['city'] = $addr['city'] ?? $addr['town'] ?? $addr['village'] ?? $addr['county'] ?? null;
                             $updates['province'] = $addr['state'] ?? $updates['province'] ?? null;
                         }
+                    } else {
+                        Log::warning('Step2: No EXIF GPS data found in profile photo', [
+                            'tutor_id' => $profile->id,
+                            'file' => $path,
+                        ]);
                     }
                 }
             } catch (\Exception $e) {
-                // ignore failures silently
+                Log::error('Step2: Error extracting EXIF from profile photo', [
+                    'tutor_id' => $profile->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
+        }
+
+        // Log if no coordinates were obtained
+        if (!$coordinatesSource && $validated['mode_offline']) {
+            Log::warning('Step2: Offline mode selected but no coordinates provided', [
+                'tutor_id' => $profile->id,
+                'google_maps_url_provided' => !empty($validated['google_maps_url']),
+                'profile_photo_provided' => $request->hasFile('profile_photo'),
+            ]);
         }
 
         $profile->update($updates);

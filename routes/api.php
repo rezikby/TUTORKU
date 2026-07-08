@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DashboardSiswaController;
 use App\Http\Controllers\Api\DashboardTutorController;
+use App\Http\Controllers\Api\DebugController;
 use App\Http\Controllers\Api\FcmTokenController;
 use App\Http\Controllers\Api\ForumCategoryController;
 use App\Http\Controllers\Api\ForumCommentController;
@@ -268,4 +269,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/withdrawals/{withdrawal}/status', [AdminWithdrawalController::class, 'updateStatus']);
         // masuk
     });
+
+// ───────── DEBUG ROUTES (Development only) ─────────
+Route::prefix('debug')->group(function () {
+    Route::get('/tutors-coordinates', [DebugController::class, 'tutorCoordinates']);
+    Route::get('/tutor/{id}', [DebugController::class, 'tutorDetail']);
+});
 });

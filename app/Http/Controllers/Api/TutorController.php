@@ -116,6 +116,21 @@ class TutorController extends Controller
 
         $tutorProfile->loadCount(['bookings' => fn ($query) => $query->whereNotIn('status', ['cancelled', 'rejected'])]);
 
+        // Log tutor coordinates for debugging
+        if ($tutorProfile->latitude || $tutorProfile->longitude) {
+            \Illuminate\Support\Facades\Log::info('TutorController show - Tutor coordinates', [
+                'tutor_id' => $tutorProfile->id,
+                'tutor_name' => $tutorProfile->user->name ?? 'N/A',
+                'latitude' => $tutorProfile->latitude,
+                'longitude' => $tutorProfile->longitude,
+            ]);
+        } else {
+            \Illuminate\Support\Facades\Log::warning('TutorController show - Tutor has no coordinates', [
+                'tutor_id' => $tutorProfile->id,
+                'tutor_name' => $tutorProfile->user->name ?? 'N/A',
+            ]);
+        }
+
         $myVote = null;
         $isFavorited = false;
         $myBookingsCount = 0;
